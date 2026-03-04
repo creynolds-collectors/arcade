@@ -103,6 +103,13 @@
         .tag-fire { background: #e74c3c; color: #fff; }
         .tag-flying { background: #5b9bd5; color: #fff; }
 
+        /* Card Sorter card theme */
+        .sorter-bg {
+            background: linear-gradient(135deg, #0a1a2e 0%, #1a2a4e 50%, #0f0c29 100%);
+        }
+        .tag-sports { background: #375a7f; color: #fff; }
+        .tag-grading { background: #02BA8D; color: #fff; }
+
         /* Coming soon card */
         .game-card.coming-soon {
             opacity: 0.4;
@@ -144,6 +151,21 @@
                 <div class="card-tags">
                     <span class="tag tag-fire">Fire</span>
                     <span class="tag tag-flying">Flying</span>
+                </div>
+            </div>
+        </a>
+
+        <!-- Card Sorter -->
+        <a href="card-sorter/" class="game-card">
+            <div class="card-thumbnail sorter-bg">
+                <canvas id="sorter-preview" width="280" height="180"></canvas>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Card Sorter</div>
+                <div class="card-desc">Sort falling PSA slabs into the correct grade bins before they pile up!</div>
+                <div class="card-tags">
+                    <span class="tag tag-sports">Sports</span>
+                    <span class="tag tag-grading">Grading</span>
                 </div>
             </div>
         </a>
@@ -264,6 +286,86 @@
         requestAnimationFrame(drawPreview);
     }
     drawPreview();
+
+    // Card Sorter preview — animated falling slab
+    const sc = document.getElementById('sorter-preview');
+    const sx = sc.getContext('2d');
+
+    const GRADES_PREVIEW = [
+        { grade: 10, color: '#02BA8D' },
+        { grade: 9, color: '#375A7F' },
+        { grade: 8, color: '#8B5CF6' },
+        { grade: 7, color: '#FFA500' },
+        { grade: 6, color: '#E74C3C' },
+        { grade: 5, color: '#D4A017' },
+    ];
+
+    function drawSorterPreview() {
+        sx.clearRect(0, 0, 280, 180);
+
+        // Stars
+        sx.fillStyle = 'rgba(255,255,255,0.12)';
+        for (let i = 0; i < 15; i++) {
+            const starX = (i * 41 + frame * 0.15) % 280;
+            const starY = (i * 29) % 180;
+            sx.fillRect(starX, starY, 1.5, 1.5);
+        }
+
+        // Animated falling slab
+        const slabW = 50;
+        const slabH = 70;
+        const slabX = 115;
+        const cycle = frame % 180;
+        const slabY = -70 + cycle * 1.4;
+        const gIdx = Math.floor(frame / 180) % GRADES_PREVIEW.length;
+        const g = GRADES_PREVIEW[gIdx];
+
+        if (slabY < 180) {
+            // Slab case
+            sx.fillStyle = '#e8e0d0';
+            sx.beginPath();
+            sx.roundRect(slabX - 2, slabY - 2, slabW + 4, slabH + 4, 4);
+            sx.fill();
+
+            // Card inner
+            sx.fillStyle = '#2d5a1e';
+            sx.fillRect(slabX, slabY + 16, slabW, slabH - 16);
+
+            // Grade label
+            sx.fillStyle = g.color;
+            sx.beginPath();
+            sx.roundRect(slabX, slabY, slabW, 16, [4, 4, 0, 0]);
+            sx.fill();
+
+            sx.fillStyle = '#fff';
+            sx.font = 'bold 10px "Lato", sans-serif';
+            sx.textAlign = 'center';
+            sx.fillText(`PSA ${g.grade}`, slabX + slabW / 2, slabY + 12);
+        }
+
+        // Grade bins at bottom
+        const binY = 148;
+        const binH = 28;
+        const binPad = 8;
+        const binCount = GRADES_PREVIEW.length;
+        const binW = (280 - binPad * (binCount + 1)) / binCount;
+        for (let i = 0; i < binCount; i++) {
+            const bx = binPad + i * (binW + binPad);
+            const bg = GRADES_PREVIEW[i];
+            sx.strokeStyle = bg.color;
+            sx.lineWidth = 1.5;
+            sx.beginPath();
+            sx.roundRect(bx, binY, binW, binH, 3);
+            sx.stroke();
+            sx.fillStyle = bg.color;
+            sx.font = 'bold 10px "Lato", sans-serif';
+            sx.textAlign = 'center';
+            sx.fillText(bg.grade, bx + binW / 2, binY + 18);
+        }
+
+        requestAnimationFrame(drawSorterPreview);
+    }
+    drawSorterPreview();
     </script>
 </body>
 </html>
