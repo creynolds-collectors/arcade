@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slab Runner</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            gap: 16px;
+            padding: 20px;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        #game-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        canvas {
+            border: 3px solid #8B6914;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Back button */
+        #back-btn {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            background: rgba(30, 30, 58, 0.9);
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #aaa;
+            font-size: 13px;
+            padding: 6px 12px;
+            cursor: pointer;
+            text-decoration: none;
+            z-index: 100;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        #back-btn:hover { color: #ffaa00; border-color: #ffaa00; }
+
+        /* Leaderboard panel — horizontal below canvas */
+        #leaderboard-panel {
+            width: 100%;
+            max-width: 600px;
+            flex-shrink: 0;
+            background: #1e1e3a;
+            border: 2px solid #8B6914;
+            border-radius: 4px;
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 13px;
+        }
+        .lb-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: #ffaa00;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #333360;
+            padding-bottom: 6px;
+        }
+        .lb-rows {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .lb-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #252545;
+            flex: 1 1 calc(50% - 4px);
+            min-width: 200px;
+        }
+        .lb-row.lb-me {
+            background: #3d2000;
+            border: 1px solid #ff6600;
+        }
+        .lb-rank {
+            width: 24px;
+            text-align: right;
+            color: #666;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+        .lb-row:nth-child(1) .lb-rank { color: #ffd700; font-weight: bold; }
+        .lb-row:nth-child(2) .lb-rank { color: #c0c0c0; font-weight: bold; }
+        .lb-row:nth-child(3) .lb-rank { color: #cd7f32; font-weight: bold; }
+        .lb-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #ccc;
+        }
+        .lb-row.lb-me .lb-name { color: #ffaa44; }
+        .lb-score {
+            font-weight: bold;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .lb-status {
+            text-align: center;
+            font-size: 11px;
+            color: #555;
+            margin-top: 6px;
+            min-height: 14px;
+        }
+        .lb-footer {
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px solid #333360;
+            font-size: 11px;
+            color: #777;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            justify-content: center;
+        }
+        #lb-player-name {
+            color: #ffaa44;
+            font-weight: bold;
+        }
+        #lb-change-name {
+            background: none;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #888;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 5px;
+            line-height: 1;
+        }
+        #lb-change-name:hover { color: #ffaa44; border-color: #ffaa44; }
+
+        /* Name modal */
+        .nm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        .nm-overlay.hidden { display: none; }
+        .nm-box {
+            background: #1e1e3a;
+            border: 2px solid #8B6914;
+            border-radius: 4px;
+            padding: 28px 24px;
+            width: 300px;
+            text-align: center;
+        }
+        .nm-title {
+            color: #ffaa00;
+            font-weight: bold;
+            font-size: 16px;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+        }
+        .nm-subtitle {
+            color: #777;
+            font-size: 12px;
+            margin-bottom: 18px;
+        }
+        .nm-input {
+            width: 100%;
+            background: #252545;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 16px;
+            padding: 10px 12px;
+            margin-bottom: 16px;
+            text-align: center;
+            outline: none;
+        }
+        .nm-input:focus { border-color: #ffaa00; }
+        .nm-buttons { display: flex; gap: 8px; justify-content: center; }
+        .nm-btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .nm-btn-confirm { background: #8B6914; color: #fff; }
+        .nm-btn-confirm:hover { background: #6B4F10; }
+        .nm-btn-skip { background: #333; color: #888; }
+        .nm-btn-skip:hover { background: #444; color: #aaa; }
+    </style>
+</head>
+<body>
+    <a href="../" id="back-btn">&#8592; Home</a>
+
+    <!-- Name entry modal -->
+    <div id="name-modal" class="nm-overlay hidden">
+        <div class="nm-box">
+            <div class="nm-title">ENTER YOUR NAME</div>
+            <div class="nm-subtitle">Your name will appear on the leaderboard</div>
+            <input id="nm-input" type="text" class="nm-input" maxlength="20" placeholder="Runner name...">
+            <div class="nm-buttons">
+                <button class="nm-btn nm-btn-skip" id="nm-skip-btn" onclick="skipName()">Skip</button>
+                <button class="nm-btn nm-btn-confirm" onclick="confirmName()">Let's Go!</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-wrapper">
+        <canvas id="game" width="600" height="300"></canvas>
+    </div>
+
+    <div id="leaderboard-panel">
+        <div class="lb-title">TOP RUNNERS</div>
+        <div id="lb-list" class="lb-rows">
+            <div style="text-align:center;color:#555;font-size:12px;padding:10px;width:100%;">Loading...</div>
+        </div>
+        <div id="lb-status" class="lb-status"></div>
+        <div class="lb-footer">
+            Playing as: <span id="lb-player-name">&mdash;</span>
+            <button id="lb-change-name" onclick="promptName()">&#x270E;</button>
+        </div>
+    </div>
+
+    <script>
+    // ---- Supabase setup ----
+    const SUPABASE_URL = 'https://tvuohothipklgwzcvmva.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2dW9ob3RoaXBrbGd3emN2bXZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MjAyNzEsImV4cCI6MjA4NjQ5NjI3MX0.ZWJPGd3Yt-Opv3Oaut3xvUZNhGrQ3P8FrQuhN-wCb6I';
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ---- Player name ----
+    let playerName = localStorage.getItem('slabRunnerPlayerName') || '';
+    let pendingScore = 0;
+
+    function promptName() {
+        const modal = document.getElementById('name-modal');
+        const input = document.getElementById('nm-input');
+        input.value = playerName;
+        document.getElementById('nm-skip-btn').style.display = playerName ? 'block' : 'none';
+        modal.classList.remove('hidden');
+        setTimeout(() => input.focus(), 50);
+    }
+
+    function confirmName() {
+        const val = document.getElementById('nm-input').value.trim();
+        if (!val) return;
+        playerName = val.slice(0, 20);
+        localStorage.setItem('slabRunnerPlayerName', playerName);
+        document.getElementById('name-modal').classList.add('hidden');
+        document.getElementById('lb-player-name').textContent = playerName;
+        if (pendingScore > 0) {
+            submitScore(playerName, pendingScore);
+            pendingScore = 0;
+        }
+        loadLeaderboard();
+    }
+
+    function skipName() {
+        document.getElementById('name-modal').classList.add('hidden');
+    }
+
+    document.getElementById('nm-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmName();
+    });
+
+    // ---- Leaderboard ----
+    async function submitScore(name, finalScore) {
+        setLbStatus('Submitting...');
+        const { error } = await db.from('slab_runner_scores').insert([{
+            player_name: name,
+            score: finalScore
+        }]);
+        if (error) {
+            console.warn('Score submit failed:', error.message);
+            setLbStatus('Submit failed');
+            return;
+        }
+        await loadLeaderboard();
+    }
+
+    async function loadLeaderboard() {
+        const { data, error } = await db
+            .from('slab_runner_scores')
+            .select('player_name, score')
+            .order('score', { ascending: false })
+            .limit(10);
+        if (error) {
+            console.warn('Leaderboard load failed:', error.message);
+            setLbStatus('Could not load');
+            return;
+        }
+        renderLeaderboard(data || []);
+    }
+
+    function renderLeaderboard(rows) {
+        const list = document.getElementById('lb-list');
+        if (rows.length === 0) {
+            list.innerHTML = '<div style="text-align:center;color:#555;font-size:12px;padding:10px;width:100%;">No scores yet! Be the first.</div>';
+            setLbStatus('');
+            return;
+        }
+        const rankLabels = ['1st', '2nd', '3rd'];
+        list.innerHTML = rows.map((row, i) => {
+            const isMe = playerName && row.player_name.toLowerCase() === playerName.toLowerCase();
+            const rank = i < 3 ? rankLabels[i] : `${i + 1}th`;
+            return `<div class="lb-row${isMe ? ' lb-me' : ''}">
+                <span class="lb-rank">${rank}</span>
+                <span class="lb-name" title="${escapeHtml(row.player_name)}">${escapeHtml(row.player_name)}</span>
+                <span class="lb-score">${row.score}</span>
+            </div>`;
+        }).join('');
+        setLbStatus('');
+    }
+
+    function setLbStatus(msg) {
+        document.getElementById('lb-status').textContent = msg;
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ---- Canvas & Game ----
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const W = 600;
+    const H = 300;
+
+    function resizeCanvas() {
+        const padding = 40;
+        const maxH = window.innerHeight - 200;
+        const maxW = window.innerWidth - padding;
+        const scale = Math.min(maxH / H, maxW / W);
+        canvas.style.width = Math.floor(W * scale) + 'px';
+        canvas.style.height = Math.floor(H * scale) + 'px';
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // ---- Grade colors ----
+    const GRADE_COLORS = {
+        10: '#02BA8D', 9: '#375A7F', 8: '#8B5CF6', 7: '#FFA500',
+        6: '#E74C3C', 5: '#D4A017', 4: '#CC5500', 3: '#AA3333',
+        2: '#884444', 1: '#666666'
+    };
+
+    // ---- Constants ----
+    const GROUND_Y = 230;
+    const BELT_H = 30;
+    const SLAB_W = 40;
+    const SLAB_H = 56;
+    const GRAVITY = 0.6;
+    const JUMP_FORCE = -10;
+
+    // ---- Game state ----
+    let gameState = 'start';
+    let frameCount = 0;
+    let distance = 0;
+    let grade = 10;
+    let speed = 3.5;
+    let highScore = parseInt(localStorage.getItem('slabRunnerHighScore') || '0');
+
+    // Slab (player)
+    const slab = {
+        x: 80,
+        y: GROUND_Y - SLAB_H,
+        vy: 0,
+        jumping: false,
+        hitFlash: 0,
+        invincible: 0,
+    };
+
+    // Obstacles
+    let obstacles = [];
+    let spawnTimer = 0;
+    let spawnInterval = 100;
+
+    // Collectibles
+    let collectibles = [];
+
+    // Particles
+    let particles = [];
+
+    // Conveyor belt animation offset
+    let beltOffset = 0;
+
+    // Parallax background elements
+    const bgShelves = Array.from({ length: 6 }, (_, i) => ({
+        x: i * 120,
+        h: 40 + Math.random() * 30,
+        boxes: Math.floor(Math.random() * 3) + 1,
+    }));
+
+    const bgBoxes = Array.from({ length: 8 }, (_, i) => ({
+        x: i * 90 + Math.random() * 30,
+        w: 20 + Math.random() * 15,
+        h: 15 + Math.random() * 10,
+        shade: Math.random() * 0.3,
+    }));
+
+    // ---- Obstacle types ----
+    const OBSTACLE_TYPES = [
+        { name: 'water', w: 40, h: 12, color: '#3888d8', label: 'Water', drawFn: drawWaterPuddle },
+        { name: 'corner', w: 25, h: 28, color: '#8B6914', label: 'Bent Corner', drawFn: drawBentCorner },
+        { name: 'coffee', w: 50, h: 10, color: '#5C3317', label: 'Coffee', drawFn: drawCoffeeSpill },
+        { name: 'book', w: 22, h: 40, color: '#444488', label: 'Book', drawFn: drawBook },
+    ];
+
+    function spawnObstacle() {
+        const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+        obstacles.push({
+            x: W + 20,
+            y: GROUND_Y - type.h,
+            w: type.w,
+            h: type.h,
+            type: type,
+        });
+
+        // Occasionally spawn collectible
+        if (Math.random() < 0.12) {
+            collectibles.push({
+                x: W + 20 + Math.random() * 100,
+                y: GROUND_Y - 70 - Math.random() * 30,
+                type: Math.random() < 0.7 ? 'sleeve' : 'toploader',
+                collected: false,
+            });
+        }
+    }
+
+    // ---- Input ----
+    function jump() {
+        if (gameState === 'start') {
+            startGame();
+            return;
+        }
+        if (gameState === 'dead') {
+            gameState = 'start';
+            return;
+        }
+        if (!slab.jumping) {
+            slab.vy = JUMP_FORCE;
+            slab.jumping = true;
+        }
+    }
+
+    canvas.addEventListener('click', jump);
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.code === 'ArrowUp') {
+            e.preventDefault();
+            jump();
+        }
+    });
+
+    function startGame() {
+        gameState = 'playing';
+        frameCount = 0;
+        distance = 0;
+        grade = 10;
+        speed = 3.5;
+        slab.y = GROUND_Y - SLAB_H;
+        slab.vy = 0;
+        slab.jumping = false;
+        slab.hitFlash = 0;
+        slab.invincible = 0;
+        obstacles = [];
+        collectibles = [];
+        particles = [];
+        spawnTimer = 0;
+        spawnInterval = 100;
+    }
+
+    // ---- Drawing functions ----
+
+    function drawConveyorBelt() {
+        // Belt body
+        ctx.fillStyle = '#555';
+        ctx.fillRect(0, GROUND_Y, W, BELT_H);
+
+        // Belt lines
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 1;
+        for (let x = -40 + (beltOffset % 40); x < W + 40; x += 40) {
+            ctx.beginPath();
+            ctx.moveTo(x, GROUND_Y + 2);
+            ctx.lineTo(x, GROUND_Y + BELT_H - 2);
+            ctx.stroke();
+        }
+
+        // Belt edges
+        ctx.fillStyle = '#666';
+        ctx.fillRect(0, GROUND_Y, W, 3);
+        ctx.fillRect(0, GROUND_Y + BELT_H - 3, W, 3);
+
+        // Rollers
+        for (const rx of [0, W - 8]) {
+            ctx.fillStyle = '#777';
+            ctx.beginPath();
+            ctx.arc(rx + 4, GROUND_Y + BELT_H / 2, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#888';
+            ctx.beginPath();
+            ctx.arc(rx + 4, GROUND_Y + BELT_H / 2, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Floor below belt
+        ctx.fillStyle = '#2a2a40';
+        ctx.fillRect(0, GROUND_Y + BELT_H, W, H - GROUND_Y - BELT_H);
+    }
+
+    function drawParallaxBg() {
+        // Far layer: warehouse wall
+        ctx.fillStyle = '#1a1a30';
+        ctx.fillRect(0, 0, W, GROUND_Y);
+
+        // Wall lines
+        ctx.strokeStyle = '#222240';
+        ctx.lineWidth = 1;
+        for (let y = 20; y < GROUND_Y; y += 40) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y);
+            ctx.stroke();
+        }
+
+        // Shelves (slow parallax)
+        const shelfScroll = (frameCount * speed * 0.2) % (120 * bgShelves.length);
+        for (const shelf of bgShelves) {
+            const sx = ((shelf.x - shelfScroll) % (120 * bgShelves.length) + 120 * bgShelves.length) % (120 * bgShelves.length) - 60;
+            // Shelf bracket
+            ctx.fillStyle = '#333350';
+            ctx.fillRect(sx, GROUND_Y - shelf.h - 20, 80, 4);
+            // Boxes on shelf
+            for (let b = 0; b < shelf.boxes; b++) {
+                ctx.fillStyle = `rgba(80, 70, 60, 0.6)`;
+                ctx.fillRect(sx + 5 + b * 25, GROUND_Y - shelf.h - 20 - 16, 18, 16);
+            }
+        }
+
+        // Mid layer: boxes on floor (medium parallax)
+        const boxScroll = (frameCount * speed * 0.5) % (90 * bgBoxes.length);
+        for (const box of bgBoxes) {
+            const bx = ((box.x - boxScroll) % (90 * bgBoxes.length) + 90 * bgBoxes.length) % (90 * bgBoxes.length) - 40;
+            ctx.fillStyle = `rgba(100, 85, 65, ${0.3 + box.shade})`;
+            ctx.fillRect(bx, GROUND_Y - box.h - 2, box.w, box.h);
+        }
+    }
+
+    function drawSlab(x, y, currentGrade, flash) {
+        ctx.save();
+
+        const rot = slab.jumping ? Math.min(slab.vy * 0.02, 0.3) : 0;
+        ctx.translate(x + SLAB_W / 2, y + SLAB_H / 2);
+        ctx.rotate(rot);
+
+        const sx = -SLAB_W / 2;
+        const sy = -SLAB_H / 2;
+        const gradeColor = GRADE_COLORS[currentGrade] || '#666';
+
+        // Flash on hit
+        if (flash > 0 && flash % 6 < 3) {
+            ctx.globalAlpha = 0.5;
+        }
+
+        // Invincibility shimmer
+        if (slab.invincible > 0) {
+            ctx.globalAlpha = 0.7 + Math.sin(frameCount * 0.5) * 0.3;
+        }
+
+        // Slab case outer
+        ctx.fillStyle = '#e8e0d0';
+        ctx.beginPath();
+        ctx.roundRect(sx - 2, sy - 2, SLAB_W + 4, SLAB_H + 4, 4);
+        ctx.fill();
+
+        // Case border
+        ctx.strokeStyle = '#bbb';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(sx - 2, sy - 2, SLAB_W + 4, SLAB_H + 4, 4);
+        ctx.stroke();
+
+        // Grade bar at top
+        ctx.fillStyle = gradeColor;
+        ctx.beginPath();
+        ctx.roundRect(sx, sy, SLAB_W, 14, [3, 3, 0, 0]);
+        ctx.fill();
+
+        // Grade text
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 9px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`PSA ${currentGrade}`, sx + SLAB_W / 2, sy + 11);
+
+        // Inner card
+        ctx.fillStyle = '#2d5a1e';
+        ctx.fillRect(sx + 2, sy + 14, SLAB_W - 4, SLAB_H - 16);
+
+        // Simple card art — baseball
+        const cardCx = sx + SLAB_W / 2;
+        const cardCy = sy + 14 + (SLAB_H - 16) / 2;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(cardCx, cardCy, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cardCx - 1.5, cardCy, 4.5, -0.6, 0.6);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cardCx + 1.5, cardCy, 4.5, Math.PI - 0.6, Math.PI + 0.6);
+        ctx.stroke();
+
+        // Cracks at lower grades
+        if (currentGrade <= 5) {
+            ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+            ctx.lineWidth = 1;
+            const numCracks = 11 - currentGrade;
+            for (let i = 0; i < numCracks; i++) {
+                const cx1 = sx + (i * 7 + 3) % SLAB_W;
+                const cy1 = sy + (i * 11 + 5) % SLAB_H;
+                ctx.beginPath();
+                ctx.moveTo(cx1, cy1);
+                ctx.lineTo(cx1 + (i % 2 ? 8 : -6), cy1 + 10);
+                ctx.stroke();
+            }
+        }
+
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    function drawWaterPuddle(x, y, w, h) {
+        ctx.fillStyle = 'rgba(56, 136, 216, 0.7)';
+        ctx.beginPath();
+        ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Ripples
+        ctx.strokeStyle = 'rgba(144, 216, 255, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(x + w / 2, y + h / 2, w / 3, h / 3, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        // Shine
+        ctx.fillStyle = 'rgba(200, 235, 255, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(x + w / 3, y + h / 3, 4, 2, -0.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawBentCorner(x, y, w, h) {
+        ctx.fillStyle = '#8B6914';
+        ctx.beginPath();
+        ctx.moveTo(x, y + h);
+        ctx.lineTo(x + w / 2, y);
+        ctx.lineTo(x + w, y + h);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#6B4F10';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Metallic highlight
+        ctx.fillStyle = 'rgba(255,255,200,0.3)';
+        ctx.beginPath();
+        ctx.moveTo(x + w / 2, y + 2);
+        ctx.lineTo(x + w / 2 + 4, y + h / 2);
+        ctx.lineTo(x + w / 2 - 2, y + h / 2);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function drawCoffeeSpill(x, y, w, h) {
+        ctx.fillStyle = 'rgba(92, 51, 23, 0.8)';
+        ctx.beginPath();
+        ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Splatter dots
+        ctx.fillStyle = 'rgba(92, 51, 23, 0.5)';
+        ctx.beginPath();
+        ctx.arc(x + 5, y - 3, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x + w - 6, y - 2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x + w / 2 + 8, y + h + 2, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawBook(x, y, w, h) {
+        // Book body
+        ctx.fillStyle = '#444488';
+        ctx.fillRect(x, y, w, h);
+        // Spine
+        ctx.fillStyle = '#333366';
+        ctx.fillRect(x, y, 4, h);
+        // Pages
+        ctx.fillStyle = '#ddd';
+        ctx.fillRect(x + 4, y + 2, w - 6, h - 4);
+        // Title line
+        ctx.fillStyle = '#888';
+        ctx.fillRect(x + 7, y + h / 3, w - 12, 2);
+        ctx.fillRect(x + 7, y + h / 3 + 5, w - 15, 2);
+    }
+
+    function drawCollectible(c) {
+        const bob = Math.sin(frameCount * 0.1 + c.x) * 4;
+        const cy = c.y + bob;
+
+        if (c.type === 'sleeve') {
+            // Penny sleeve — shield shape
+            ctx.fillStyle = 'rgba(2, 186, 141, 0.8)';
+            ctx.beginPath();
+            ctx.moveTo(c.x, cy - 8);
+            ctx.lineTo(c.x + 10, cy - 8);
+            ctx.lineTo(c.x + 10, cy + 2);
+            ctx.lineTo(c.x + 5, cy + 8);
+            ctx.lineTo(c.x, cy + 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 8px "Segoe UI"';
+            ctx.textAlign = 'center';
+            ctx.fillText('+', c.x + 5, cy + 1);
+        } else {
+            // Top loader — case with star
+            ctx.fillStyle = 'rgba(255, 170, 0, 0.8)';
+            ctx.fillRect(c.x - 2, cy - 10, 14, 18);
+            ctx.strokeStyle = '#ffdd66';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(c.x - 2, cy - 10, 14, 18);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 10px "Segoe UI"';
+            ctx.textAlign = 'center';
+            ctx.fillText('\u2605', c.x + 5, cy + 4);
+        }
+    }
+
+    function drawParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.15;
+            p.life--;
+            const alpha = p.life / p.maxLife;
+            ctx.fillStyle = `rgba(${p.r}, ${p.g}, ${p.b}, ${alpha})`;
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+    }
+
+    function spawnHitParticles(x, y, r, g, b) {
+        for (let i = 0; i < 8; i++) {
+            particles.push({
+                x, y,
+                vx: (Math.random() - 0.5) * 4,
+                vy: -Math.random() * 5 - 1,
+                size: 2 + Math.random() * 3,
+                life: 20 + Math.random() * 15,
+                maxLife: 35,
+                r, g, b,
+            });
+        }
+    }
+
+    function spawnShatterParticles(x, y) {
+        for (let i = 0; i < 30; i++) {
+            particles.push({
+                x: x + Math.random() * SLAB_W,
+                y: y + Math.random() * SLAB_H,
+                vx: (Math.random() - 0.5) * 8,
+                vy: -Math.random() * 8 - 2,
+                size: 3 + Math.random() * 5,
+                life: 40 + Math.random() * 30,
+                maxLife: 70,
+                r: 232, g: 224, b: 208,
+            });
+        }
+    }
+
+    function drawHUD() {
+        // Distance score
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 20px "Segoe UI", sans-serif';
+        ctx.textAlign = 'right';
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = 3;
+        const distScore = Math.floor(distance);
+        ctx.strokeText(distScore, W - 12, 26);
+        ctx.fillText(distScore, W - 12, 26);
+
+        // Grade indicator
+        const gradeColor = GRADE_COLORS[grade] || '#666';
+        ctx.fillStyle = gradeColor;
+        ctx.font = 'bold 14px "Segoe UI", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.strokeText(`PSA ${grade}`, 12, 22);
+        ctx.fillText(`PSA ${grade}`, 12, 22);
+
+        // Grade bar
+        const barW = 80;
+        const barH = 6;
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(12, 28, barW, barH);
+        ctx.fillStyle = gradeColor;
+        ctx.fillRect(12, 28, barW * (grade / 10), barH);
+    }
+
+    function drawStartScreen() {
+        drawParallaxBg();
+        drawConveyorBelt();
+
+        // Animated slab bouncing
+        const bounceY = GROUND_Y - SLAB_H - Math.abs(Math.sin(frameCount * 0.05)) * 20;
+        drawSlab(slab.x, bounceY, 10, 0);
+
+        // Title
+        ctx.fillStyle = '#8B6914';
+        ctx.font = 'bold 36px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 4;
+        ctx.strokeText('SLAB', W / 2 + 80, 80);
+        ctx.fillText('SLAB', W / 2 + 80, 80);
+        ctx.fillStyle = '#ffaa00';
+        ctx.strokeText('RUNNER', W / 2 + 80, 116);
+        ctx.fillText('RUNNER', W / 2 + 80, 116);
+
+        // Subtitle
+        ctx.fillStyle = 'rgba(200, 200, 255, 0.7)';
+        ctx.font = '12px "Segoe UI", sans-serif';
+        ctx.fillText('Protect the slab! Dodge the hazards!', W / 2 + 80, 138);
+
+        // Instructions
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = '14px "Segoe UI", sans-serif';
+        ctx.fillText('Click or press Space to jump', W / 2, H - 30);
+
+        if (highScore > 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.font = '12px "Segoe UI", sans-serif';
+            ctx.fillText(`High Score: ${highScore}`, W / 2, H - 50);
+        }
+    }
+
+    function drawDeadScreen() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = 'bold 28px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('SLAB DESTROYED!', W / 2, 80);
+
+        const distScore = Math.floor(distance);
+        ctx.fillStyle = '#aaa';
+        ctx.font = '14px "Segoe UI", sans-serif';
+        ctx.fillText(`Distance: ${distScore}`, W / 2, 115);
+        ctx.fillText(`Final Grade: PSA ${Math.max(grade, 0)}`, W / 2, 135);
+
+        const multiplier = Math.max(grade, 0);
+        const finalScore = distScore * Math.max(multiplier, 1);
+        ctx.fillStyle = '#ffaa00';
+        ctx.font = 'bold 13px "Segoe UI", sans-serif';
+        ctx.fillText(`${distScore} x ${Math.max(multiplier, 1)} grade bonus = `, W / 2, 165);
+        ctx.font = 'bold 24px "Segoe UI", sans-serif';
+        ctx.fillText(`${finalScore}`, W / 2, 195);
+
+        if (finalScore >= highScore && finalScore > 0) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.font = 'bold 14px "Segoe UI", sans-serif';
+            ctx.fillText('New High Score!', W / 2, 220);
+        }
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.font = '14px "Segoe UI", sans-serif';
+        ctx.fillText('Click or press Space to continue', W / 2, 260);
+    }
+
+    // ---- Collision detection ----
+    function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+        return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+    }
+
+    // ---- Update ----
+    function update() {
+        frameCount++;
+
+        if (gameState === 'start') {
+            beltOffset += 2;
+            return;
+        }
+
+        if (gameState !== 'playing') return;
+
+        // Distance / score
+        distance += speed * 0.1;
+
+        // Speed up over time
+        if (Math.floor(distance) % 500 === 0 && Math.floor(distance) > 0 && speed < 8) {
+            speed += 0.002;
+        }
+        speed += 0.0003;
+
+        // Belt animation
+        beltOffset += speed;
+
+        // Slab physics
+        if (slab.jumping) {
+            slab.vy += GRAVITY;
+            slab.y += slab.vy;
+            if (slab.y >= GROUND_Y - SLAB_H) {
+                slab.y = GROUND_Y - SLAB_H;
+                slab.vy = 0;
+                slab.jumping = false;
+            }
+        }
+
+        // Hit flash decay
+        if (slab.hitFlash > 0) slab.hitFlash--;
+
+        // Invincibility decay
+        if (slab.invincible > 0) slab.invincible--;
+
+        // Spawn obstacles
+        spawnTimer++;
+        const adjustedInterval = Math.max(40, spawnInterval - Math.floor(distance / 100) * 3);
+        if (spawnTimer >= adjustedInterval) {
+            spawnTimer = 0;
+            spawnObstacle();
+        }
+
+        // Move obstacles
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            obstacles[i].x -= speed;
+            if (obstacles[i].x + obstacles[i].w < -20) {
+                obstacles.splice(i, 1);
+            }
+        }
+
+        // Move collectibles
+        for (let i = collectibles.length - 1; i >= 0; i--) {
+            collectibles[i].x -= speed;
+            if (collectibles[i].x < -20) {
+                collectibles.splice(i, 1);
+            }
+        }
+
+        // Check slab vs obstacles
+        if (slab.invincible <= 0) {
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const o = obstacles[i];
+                // Slab hitbox (slightly forgiving)
+                if (rectsOverlap(slab.x + 4, slab.y + 4, SLAB_W - 8, SLAB_H - 8, o.x, o.y, o.w, o.h)) {
+                    grade--;
+                    slab.hitFlash = 30;
+                    spawnHitParticles(slab.x + SLAB_W / 2, slab.y + SLAB_H / 2, 255, 80, 80);
+                    obstacles.splice(i, 1);
+
+                    if (grade <= 0) {
+                        gameOver();
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Check slab vs collectibles
+        for (let i = collectibles.length - 1; i >= 0; i--) {
+            const c = collectibles[i];
+            if (!c.collected && rectsOverlap(slab.x, slab.y, SLAB_W, SLAB_H, c.x - 2, c.y - 10, 14, 18)) {
+                c.collected = true;
+                if (c.type === 'sleeve' && grade < 10) {
+                    grade++;
+                    spawnHitParticles(c.x, c.y, 2, 186, 141);
+                } else if (c.type === 'toploader') {
+                    slab.invincible = 180; // 3 seconds
+                    spawnHitParticles(c.x, c.y, 255, 170, 0);
+                }
+                collectibles.splice(i, 1);
+            }
+        }
+    }
+
+    function gameOver() {
+        gameState = 'dead';
+        spawnShatterParticles(slab.x, slab.y);
+        const finalScore = Math.floor(distance) * Math.max(grade, 1);
+        if (finalScore > highScore) {
+            highScore = finalScore;
+            localStorage.setItem('slabRunnerHighScore', highScore.toString());
+        }
+        if (finalScore > 0) {
+            if (playerName) {
+                submitScore(playerName, finalScore);
+            } else {
+                // Prompt for name, then submit
+                pendingScore = finalScore;
+                promptName();
+            }
+        }
+    }
+
+    function draw() {
+        if (gameState === 'start') {
+            drawStartScreen();
+            return;
+        }
+
+        drawParallaxBg();
+        drawConveyorBelt();
+
+        // Draw obstacles
+        for (const o of obstacles) {
+            o.type.drawFn(o.x, o.y, o.w, o.h);
+        }
+
+        // Draw collectibles
+        for (const c of collectibles) {
+            if (!c.collected) drawCollectible(c);
+        }
+
+        // Draw slab
+        if (gameState === 'playing') {
+            drawSlab(slab.x, slab.y, grade, slab.hitFlash);
+        }
+
+        // Particles
+        drawParticles();
+
+        // HUD
+        if (gameState === 'playing') drawHUD();
+
+        // Dead overlay
+        if (gameState === 'dead') {
+            drawParticles();
+            drawDeadScreen();
+        }
+    }
+
+    // ---- 60fps game loop ----
+    const FRAME_DURATION = 1000 / 60;
+    let lastTime = 0;
+
+    function gameLoop(timestamp) {
+        if (lastTime === 0) lastTime = timestamp - FRAME_DURATION;
+        const delta = timestamp - lastTime;
+
+        if (delta >= FRAME_DURATION) {
+            lastTime = timestamp - (delta % FRAME_DURATION);
+            update();
+        }
+
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // ---- Init ----
+    document.getElementById('lb-player-name').textContent = playerName || '\u2014';
+    if (!playerName) promptName();
+    loadLeaderboard();
+    requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
