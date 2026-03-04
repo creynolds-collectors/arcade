@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Moltres</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            gap: 20px;
+            padding: 20px;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        #game-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        canvas {
+            border: 3px solid #e74c3c;
+            border-radius: 4px;
+            cursor: pointer;
+            image-rendering: pixelated;
+        }
+
+        /* Leaderboard panel */
+        #leaderboard-panel {
+            width: 220px;
+            flex-shrink: 0;
+            background: #1e1e3a;
+            border: 2px solid #e74c3c;
+            border-radius: 4px;
+            padding: 12px;
+            color: #fff;
+            font-size: 13px;
+            align-self: center;
+        }
+        .lb-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: #ffaa00;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #333360;
+            padding-bottom: 8px;
+        }
+        .lb-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 6px;
+            border-radius: 4px;
+            margin-bottom: 3px;
+            background: #252545;
+        }
+        .lb-row.lb-me {
+            background: #3d2000;
+            border: 1px solid #ff6600;
+        }
+        .lb-rank {
+            width: 24px;
+            text-align: right;
+            color: #666;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+        .lb-row:nth-child(1) .lb-rank { color: #ffd700; font-weight: bold; }
+        .lb-row:nth-child(2) .lb-rank { color: #c0c0c0; font-weight: bold; }
+        .lb-row:nth-child(3) .lb-rank { color: #cd7f32; font-weight: bold; }
+        .lb-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #ccc;
+        }
+        .lb-row.lb-me .lb-name { color: #ffaa44; }
+        .lb-score {
+            font-weight: bold;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .lb-status {
+            text-align: center;
+            font-size: 11px;
+            color: #555;
+            margin-top: 8px;
+            min-height: 16px;
+        }
+        .lb-footer {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #333360;
+            font-size: 11px;
+            color: #777;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        #lb-player-name {
+            color: #ffaa44;
+            font-weight: bold;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #lb-change-name {
+            background: none;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #888;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 5px;
+            line-height: 1;
+        }
+        #lb-change-name:hover { color: #ffaa44; border-color: #ffaa44; }
+
+        /* Name modal */
+        .nm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        .nm-overlay.hidden { display: none; }
+        .nm-box {
+            background: #1e1e3a;
+            border: 2px solid #e74c3c;
+            border-radius: 4px;
+            padding: 28px 24px;
+            width: 300px;
+            text-align: center;
+        }
+        .nm-title {
+            color: #ffaa00;
+            font-weight: bold;
+            font-size: 16px;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+        }
+        .nm-subtitle {
+            color: #777;
+            font-size: 12px;
+            margin-bottom: 18px;
+        }
+        .nm-input {
+            width: 100%;
+            background: #252545;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 16px;
+            padding: 10px 12px;
+            margin-bottom: 16px;
+            text-align: center;
+            outline: none;
+        }
+        .nm-input:focus { border-color: #ffaa00; }
+        .nm-buttons { display: flex; gap: 8px; justify-content: center; }
+        .nm-btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .nm-btn-confirm { background: #e74c3c; color: #fff; }
+        .nm-btn-confirm:hover { background: #c0392b; }
+        .nm-btn-skip { background: #333; color: #888; }
+        .nm-btn-skip:hover { background: #444; color: #aaa; }
+
+        /* Back button */
+        #back-btn {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            background: rgba(30, 30, 58, 0.9);
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #aaa;
+            font-size: 13px;
+            padding: 6px 12px;
+            cursor: pointer;
+            text-decoration: none;
+            z-index: 100;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        #back-btn:hover { color: #ffaa00; border-color: #ffaa00; }
+
+        @media (max-width: 680px) {
+            body { flex-direction: column; align-items: center; }
+            #leaderboard-panel { width: 100%; max-width: 400px; }
+        }
+    </style>
+</head>
+<body>
+    <a href="../" id="back-btn">&#8592; Home</a>
+
+    <!-- Name entry modal -->
+    <div id="name-modal" class="nm-overlay hidden">
+        <div class="nm-box">
+            <div class="nm-title">ENTER YOUR NAME</div>
+            <div class="nm-subtitle">Your name will appear on the leaderboard</div>
+            <input id="nm-input" type="text" class="nm-input" maxlength="20" placeholder="Trainer name...">
+            <div class="nm-buttons">
+                <button class="nm-btn nm-btn-skip" id="nm-skip-btn" onclick="skipName()">Skip</button>
+                <button class="nm-btn nm-btn-confirm" onclick="confirmName()">Let's Go!</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-wrapper">
+        <canvas id="game" width="400" height="600"></canvas>
+    </div>
+
+    <div id="leaderboard-panel">
+        <div class="lb-title">TOP TRAINERS</div>
+        <div id="lb-list">
+            <div style="text-align:center;color:#555;font-size:12px;padding:10px;">Loading...</div>
+        </div>
+        <div id="lb-status" class="lb-status"></div>
+        <div class="lb-footer">
+            Playing as: <span id="lb-player-name">&mdash;</span>
+            <button id="lb-change-name" onclick="promptName()">&#x270E;</button>
+        </div>
+    </div>
+
+    <script>
+    // ---- Supabase setup ----
+    const SUPABASE_URL = 'https://tvuohothipklgwzcvmva.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2dW9ob3RoaXBrbGd3emN2bXZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MjAyNzEsImV4cCI6MjA4NjQ5NjI3MX0.ZWJPGd3Yt-Opv3Oaut3xvUZNhGrQ3P8FrQuhN-wCb6I';
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ---- Player name ----
+    let playerName = localStorage.getItem('moltresPlayerName') || '';
+
+    function promptName() {
+        const modal = document.getElementById('name-modal');
+        const input = document.getElementById('nm-input');
+        input.value = playerName;
+        document.getElementById('nm-skip-btn').style.display = playerName ? 'block' : 'none';
+        modal.classList.remove('hidden');
+        setTimeout(() => input.focus(), 50);
+    }
+
+    function confirmName() {
+        const val = document.getElementById('nm-input').value.trim();
+        if (!val) return;
+        playerName = val.slice(0, 20);
+        localStorage.setItem('moltresPlayerName', playerName);
+        document.getElementById('name-modal').classList.add('hidden');
+        document.getElementById('lb-player-name').textContent = playerName;
+        loadLeaderboard();
+    }
+
+    function skipName() {
+        document.getElementById('name-modal').classList.add('hidden');
+    }
+
+    document.getElementById('nm-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmName();
+    });
+
+    // ---- Leaderboard ----
+    async function submitScore(name, finalScore) {
+        setLbStatus('Submitting...');
+        const { error } = await db.from('moltres_scores').insert([{
+            player_name: name,
+            score: finalScore
+        }]);
+        if (error) {
+            console.warn('Score submit failed:', error.message);
+            setLbStatus('Submit failed');
+            return;
+        }
+        await loadLeaderboard();
+    }
+
+    async function loadLeaderboard() {
+        const { data, error } = await db
+            .from('moltres_scores')
+            .select('player_name, score')
+            .order('score', { ascending: false })
+            .limit(10);
+
+        if (error) {
+            console.warn('Leaderboard load failed:', error.message);
+            setLbStatus('Could not load');
+            return;
+        }
+        renderLeaderboard(data || []);
+    }
+
+    function renderLeaderboard(rows) {
+        const list = document.getElementById('lb-list');
+        if (rows.length === 0) {
+            list.innerHTML = '<div style="text-align:center;color:#555;font-size:12px;padding:10px;">No scores yet!<br>Be the first.</div>';
+            setLbStatus('');
+            return;
+        }
+        const rankLabels = ['1st', '2nd', '3rd'];
+        list.innerHTML = rows.map((row, i) => {
+            const isMe = playerName && row.player_name.toLowerCase() === playerName.toLowerCase();
+            const rank = i < 3 ? rankLabels[i] : `${i + 1}th`;
+            return `<div class="lb-row${isMe ? ' lb-me' : ''}">
+                <span class="lb-rank">${rank}</span>
+                <span class="lb-name" title="${escapeHtml(row.player_name)}">${escapeHtml(row.player_name)}</span>
+                <span class="lb-score">${row.score}</span>
+            </div>`;
+        }).join('');
+        setLbStatus('');
+    }
+
+    function setLbStatus(msg) {
+        document.getElementById('lb-status').textContent = msg;
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ---- Canvas & Game ----
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+        const panelWidth = window.innerWidth > 680 ? 260 : 0;
+        const padding = 40;
+        const maxH = window.innerHeight - padding;
+        const maxW = window.innerWidth - padding - panelWidth;
+        const scale = Math.min(maxH / 600, maxW / 400);
+        canvas.style.width = Math.floor(400 * scale) + 'px';
+        canvas.style.height = Math.floor(600 * scale) + 'px';
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Game state
+    let gameState = 'start'; // start, playing, dead
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem('moltresHighScore') || '0');
+    let frameCount = 0;
+
+    // Moltres
+    const moltres = {
+        x: 80,
+        y: 300,
+        width: 60,
+        height: 55,
+        velocity: 0,
+        gravity: 0.4,
+        jumpForce: -6.5,
+        rotation: 0,
+        flapFrame: 0,
+        flapSpeed: 0.15,
+    };
+
+    // Water cannons
+    let cannons = [];
+    const cannonConfig = {
+        width: 70,
+        gap: 170,
+        speed: 2,
+        spawnInterval: 90,
+    };
+    let cannonTimer = 0;
+
+    // Particles (fire trail + water splashes)
+    let particles = [];
+
+    // Background stars
+    const stars = Array.from({ length: 60 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2 + 0.5,
+        twinkle: Math.random() * Math.PI * 2,
+    }));
+
+    // Background clouds
+    const clouds = Array.from({ length: 5 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height * 0.4 + 50,
+        width: Math.random() * 80 + 40,
+        speed: Math.random() * 0.3 + 0.1,
+    }));
+
+    function reset() {
+        moltres.y = 300;
+        moltres.velocity = 0;
+        moltres.rotation = 0;
+        cannons = [];
+        particles = [];
+        cannonTimer = 0;
+        score = 0;
+        frameCount = 0;
+    }
+
+    function jump() {
+        if (gameState === 'start') {
+            gameState = 'playing';
+            reset();
+            moltres.velocity = moltres.jumpForce;
+        } else if (gameState === 'playing') {
+            moltres.velocity = moltres.jumpForce;
+            moltres.flapFrame = 1;
+        } else if (gameState === 'dead') {
+            gameState = 'start';
+        }
+    }
+
+    canvas.addEventListener('click', jump);
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.code === 'ArrowUp') {
+            e.preventDefault();
+            jump();
+        }
+    });
+
+    // --- Drawing functions ---
+
+    function drawMoltres(x, y, rotation) {
+        ctx.save();
+        ctx.translate(x + moltres.width / 2, y + moltres.height / 2);
+        ctx.rotate(rotation);
+
+        // Scale so Moltres is drawn at a good game size
+        const s = 0.85;
+        ctx.scale(s, s);
+
+        const wingFlap = Math.sin(frameCount * moltres.flapSpeed * Math.PI * 2) * 0.35;
+        const tailFlicker = Math.sin(frameCount * 0.2) * 4;
+        const crestFlicker = Math.sin(frameCount * 0.25) * 3;
+
+        // === FLAME TAIL (long, flowing, behind the body) ===
+        // Outer flame layer
+        ctx.fillStyle = '#ff4400';
+        ctx.beginPath();
+        ctx.moveTo(-12, 8);
+        ctx.bezierCurveTo(-28, 6 + tailFlicker, -42, -2, -52, -8 + tailFlicker * 1.2);
+        ctx.bezierCurveTo(-46, 2, -38, 10, -30, 14 + tailFlicker * 0.5);
+        ctx.bezierCurveTo(-22, 16, -14, 12, -12, 10);
+        ctx.fill();
+
+        // Middle flame layer
+        ctx.fillStyle = '#ff6600';
+        ctx.beginPath();
+        ctx.moveTo(-10, 7);
+        ctx.bezierCurveTo(-24, 4 - tailFlicker * 0.6, -36, 0, -46, -4 + tailFlicker);
+        ctx.bezierCurveTo(-38, 4, -30, 10, -24, 12 - tailFlicker * 0.3);
+        ctx.bezierCurveTo(-18, 13, -12, 10, -10, 9);
+        ctx.fill();
+
+        // Inner bright flame
+        ctx.fillStyle = '#ffaa00';
+        ctx.beginPath();
+        ctx.moveTo(-8, 7);
+        ctx.bezierCurveTo(-18, 4, -28, 2 + tailFlicker * 0.4, -36, 0 + tailFlicker * 0.6);
+        ctx.bezierCurveTo(-28, 6, -20, 10, -14, 10);
+        ctx.bezierCurveTo(-10, 10, -8, 9, -8, 8);
+        ctx.fill();
+
+        // Hottest core
+        ctx.fillStyle = '#ffdd66';
+        ctx.beginPath();
+        ctx.moveTo(-6, 7);
+        ctx.bezierCurveTo(-14, 5, -20, 4 - tailFlicker * 0.3, -24, 3);
+        ctx.bezierCurveTo(-18, 7, -12, 9, -6, 8);
+        ctx.fill();
+
+        // === LEGS (thin, trailing behind/below) ===
+        ctx.strokeStyle = '#8B6914';
+        ctx.lineWidth = 2;
+        // Left leg
+        ctx.beginPath();
+        ctx.moveTo(-2, 14);
+        ctx.lineTo(-6, 24);
+        ctx.lineTo(-10, 27);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-6, 24);
+        ctx.lineTo(-4, 28);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-6, 24);
+        ctx.lineTo(-8, 28);
+        ctx.stroke();
+        // Right leg
+        ctx.beginPath();
+        ctx.moveTo(4, 14);
+        ctx.lineTo(1, 24);
+        ctx.lineTo(-2, 27);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(1, 24);
+        ctx.lineTo(3, 28);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(1, 24);
+        ctx.lineTo(-1, 28);
+        ctx.stroke();
+
+        // === WINGS (large, flame-edged, sweeping) ===
+        // Upper wing
+        ctx.save();
+        ctx.rotate(wingFlap);
+
+        // Wing base (yellow plumage)
+        ctx.fillStyle = '#f0c040';
+        ctx.beginPath();
+        ctx.moveTo(-6, -4);
+        ctx.bezierCurveTo(-14, -16, -8, -30, 2, -38);
+        ctx.bezierCurveTo(10, -32, 14, -22, 10, -8);
+        ctx.bezierCurveTo(6, -4, 0, -2, -6, -4);
+        ctx.fill();
+
+        // Wing flame edge
+        ctx.fillStyle = '#ff5500';
+        ctx.beginPath();
+        ctx.moveTo(-8, -14);
+        ctx.bezierCurveTo(-16, -22, -14, -34, -6, -42);
+        ctx.bezierCurveTo(-2, -38, 0, -34, 2, -38);
+        ctx.bezierCurveTo(4, -42, 8, -40, 6, -34);
+        ctx.bezierCurveTo(10, -36, 14, -34, 10, -28);
+        ctx.bezierCurveTo(14, -22, 10, -10, 6, -6);
+        ctx.bezierCurveTo(2, -10, -4, -12, -8, -14);
+        ctx.fill();
+
+        // Flame tips on wing
+        ctx.fillStyle = '#ff3300';
+        ctx.beginPath();
+        ctx.moveTo(-6, -42);
+        ctx.bezierCurveTo(-10, -50, -4, -52 + crestFlicker, 0, -46);
+        ctx.bezierCurveTo(-2, -42, -4, -40, -6, -42);
+        ctx.fill();
+
+        ctx.fillStyle = '#ff4400';
+        ctx.beginPath();
+        ctx.moveTo(6, -34);
+        ctx.bezierCurveTo(10, -42 - crestFlicker, 14, -40, 10, -34);
+        ctx.fill();
+
+        // Wing highlight
+        ctx.fillStyle = '#f8d860';
+        ctx.beginPath();
+        ctx.moveTo(-2, -8);
+        ctx.bezierCurveTo(-6, -16, -2, -26, 4, -30);
+        ctx.bezierCurveTo(8, -24, 8, -14, 4, -8);
+        ctx.bezierCurveTo(2, -6, 0, -6, -2, -8);
+        ctx.fill();
+
+        ctx.restore();
+
+        // Lower wing (partial, behind body)
+        ctx.save();
+        ctx.rotate(-wingFlap * 0.6);
+
+        ctx.fillStyle = '#e0a820';
+        ctx.beginPath();
+        ctx.moveTo(-4, 8);
+        ctx.bezierCurveTo(-10, 18, -6, 28, 0, 32);
+        ctx.bezierCurveTo(6, 28, 8, 20, 6, 10);
+        ctx.bezierCurveTo(4, 8, 0, 6, -4, 8);
+        ctx.fill();
+
+        // Lower wing flame edge
+        ctx.fillStyle = '#ee5500';
+        ctx.beginPath();
+        ctx.moveTo(-6, 16);
+        ctx.bezierCurveTo(-12, 24, -8, 34, -2, 38);
+        ctx.bezierCurveTo(2, 36, 6, 34, 4, 30);
+        ctx.bezierCurveTo(10, 32, 10, 26, 6, 22);
+        ctx.bezierCurveTo(8, 16, 2, 10, -6, 16);
+        ctx.fill();
+
+        ctx.restore();
+
+        // === BODY (compact, light yellow) ===
+        ctx.fillStyle = '#f0c040';
+        ctx.beginPath();
+        ctx.ellipse(0, 6, 12, 10, 0.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Body highlight
+        ctx.fillStyle = '#f8d860';
+        ctx.beginPath();
+        ctx.ellipse(2, 4, 7, 6, 0.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // === NECK (long, thin, curving upward-forward) ===
+        ctx.fillStyle = '#f0c040';
+        ctx.beginPath();
+        ctx.moveTo(4, -2);
+        ctx.bezierCurveTo(8, -10, 14, -18, 18, -24);
+        ctx.bezierCurveTo(20, -24, 22, -18, 16, -8);
+        ctx.bezierCurveTo(12, -2, 8, 2, 6, 2);
+        ctx.fill();
+
+        // Neck highlight
+        ctx.fillStyle = '#f8d860';
+        ctx.beginPath();
+        ctx.moveTo(6, -2);
+        ctx.bezierCurveTo(10, -10, 15, -17, 18, -22);
+        ctx.bezierCurveTo(19, -20, 16, -12, 12, -4);
+        ctx.bezierCurveTo(10, 0, 8, 0, 6, -2);
+        ctx.fill();
+
+        // === HEAD (small, angular) ===
+        ctx.fillStyle = '#f0c040';
+        ctx.beginPath();
+        ctx.ellipse(19, -26, 7, 6, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Head highlight
+        ctx.fillStyle = '#f8d860';
+        ctx.beginPath();
+        ctx.ellipse(19, -27, 4.5, 3.5, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // === HEAD CREST (large flowing flame) ===
+        ctx.fillStyle = '#ff4400';
+        ctx.beginPath();
+        ctx.moveTo(16, -30);
+        ctx.bezierCurveTo(12, -38, 8, -44 + crestFlicker, 12, -50);
+        ctx.bezierCurveTo(16, -46, 18, -42, 20, -46 - crestFlicker);
+        ctx.bezierCurveTo(22, -50, 26, -48, 24, -42);
+        ctx.bezierCurveTo(26, -44, 28, -42 + crestFlicker, 26, -38);
+        ctx.bezierCurveTo(24, -34, 22, -32, 20, -30);
+        ctx.fill();
+
+        // Crest inner flame
+        ctx.fillStyle = '#ff7700';
+        ctx.beginPath();
+        ctx.moveTo(17, -32);
+        ctx.bezierCurveTo(14, -38, 12, -42 - crestFlicker, 15, -46);
+        ctx.bezierCurveTo(18, -42, 20, -40, 22, -43);
+        ctx.bezierCurveTo(24, -40, 24, -36, 22, -34);
+        ctx.bezierCurveTo(20, -32, 18, -32, 17, -32);
+        ctx.fill();
+
+        // Crest bright core
+        ctx.fillStyle = '#ffaa22';
+        ctx.beginPath();
+        ctx.moveTo(18, -33);
+        ctx.bezierCurveTo(16, -37, 15, -40 + crestFlicker * 0.5, 18, -42);
+        ctx.bezierCurveTo(20, -40, 21, -37, 20, -34);
+        ctx.bezierCurveTo(19, -33, 18, -33, 18, -33);
+        ctx.fill();
+
+        // === EYE (small, triangular/sharp) ===
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.ellipse(22, -27, 2.5, 2.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.ellipse(22.5, -28, 0.8, 0.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // === BEAK (long, pointed, brown) ===
+        ctx.fillStyle = '#8B6914';
+        ctx.beginPath();
+        ctx.moveTo(24, -27);
+        ctx.lineTo(34, -25);
+        ctx.lineTo(24, -23);
+        ctx.fill();
+
+        // Beak line
+        ctx.strokeStyle = '#6B4F10';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(24, -25);
+        ctx.lineTo(34, -25);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    // Pixel size for retro look
+    const PX = 4;
+
+    // GBA-style water palette
+    const WATER_DARK = '#1858a8';
+    const WATER_MID = '#3888d8';
+    const WATER_LIGHT = '#58b0f0';
+    const WATER_HIGHLIGHT = '#90d8ff';
+    const WATER_WHITE = '#c0e8ff';
+
+    function drawWaterCannon(x, gapY, isTop) {
+        const cannonW = cannonConfig.width;
+
+        if (isTop) {
+            const gapEdge = gapY - cannonConfig.gap / 2;
+            drawRetroWaterStream(x, 0, gapEdge, cannonW);
+            drawWaterRippleEnd(x, gapEdge, cannonW, true);
+        } else {
+            const gapEdge = gapY + cannonConfig.gap / 2;
+            drawWaterRippleEnd(x, gapEdge, cannonW, false);
+            drawRetroWaterStream(x, gapEdge, canvas.height, cannonW);
+        }
+    }
+
+    function drawRetroWaterStream(x, yStart, yEnd, w) {
+        const streamL = x + 10;
+        const streamR = x + w - 10;
+        const streamW = streamR - streamL;
+
+        // Main water body — tiled pixel columns with animated color cycling
+        const animOffset = Math.floor(frameCount / 4);
+        for (let py = yStart; py < yEnd; py += PX) {
+            for (let px = streamL; px < streamR; px += PX) {
+                const tx = Math.floor(px / PX);
+                const ty = Math.floor(py / PX) + animOffset;
+                const pattern = (tx + ty) % 4;
+
+                let color;
+                if (pattern === 0) color = WATER_DARK;
+                else if (pattern === 1) color = WATER_MID;
+                else if (pattern === 2) color = WATER_LIGHT;
+                else color = WATER_MID;
+
+                ctx.fillStyle = color;
+                ctx.fillRect(px, py, PX, PX);
+            }
+        }
+
+        // Highlight shimmer columns
+        const shimmerX = streamL + ((Math.floor(frameCount / 6) * PX * 3) % streamW);
+        for (let py = yStart; py < yEnd; py += PX) {
+            const ty = Math.floor(py / PX) + animOffset;
+            if (ty % 3 === 0) {
+                ctx.fillStyle = WATER_HIGHLIGHT;
+                ctx.fillRect(shimmerX, py, PX, PX);
+            }
+        }
+
+        const shimmerX2 = streamL + ((Math.floor(frameCount / 8) * PX * 5 + streamW / 2) % streamW);
+        for (let py = yStart; py < yEnd; py += PX) {
+            const ty = Math.floor(py / PX) + animOffset;
+            if (ty % 4 === 1) {
+                ctx.fillStyle = WATER_WHITE;
+                ctx.fillRect(shimmerX2, py, PX, PX);
+            }
+        }
+
+        // Pixel edge bubbles
+        const bubbleFrame = Math.floor(frameCount / 5);
+        for (let i = 0; i < 6; i++) {
+            const by = yStart + ((bubbleFrame * PX * 7 + i * 67) % Math.max(1, yEnd - yStart));
+            ctx.fillStyle = WATER_HIGHLIGHT;
+            ctx.fillRect(streamL - PX, by, PX, PX);
+            ctx.fillRect(streamR, by + PX * 2, PX, PX);
+        }
+
+        // Dark pixel border on edges
+        for (let py = yStart; py < yEnd; py += PX) {
+            ctx.fillStyle = WATER_DARK;
+            ctx.fillRect(streamL, py, PX, PX);
+            ctx.fillRect(streamR - PX, py, PX, PX);
+        }
+    }
+
+    function drawWaterRippleEnd(x, edgeY, w, isTop) {
+        const streamL = x + 10;
+        const streamR = x + w - 10;
+        const streamW = streamR - streamL;
+        const cx = streamL + streamW / 2;
+        const animFrame = Math.floor(frameCount / 6) % 4;
+
+        // Ripple rows — each row wider and lighter than the last, spreading from the stream end
+        const ripples = [
+            { offset: 0, spread: 0, color: WATER_MID },
+            { offset: 1, spread: 1, color: WATER_LIGHT },
+            { offset: 2, spread: 2, color: WATER_HIGHLIGHT },
+            { offset: 3, spread: 3, color: WATER_WHITE },
+            { offset: 4, spread: 2, color: WATER_HIGHLIGHT },
+            { offset: 5, spread: 1, color: WATER_LIGHT },
+        ];
+
+        for (const ripple of ripples) {
+            const dir = isTop ? 1 : -1;
+            const ry = edgeY + (ripple.offset * PX * dir);
+            const spread = ripple.spread * PX + ((animFrame + ripple.offset) % 2) * PX;
+            const rL = streamL - spread;
+            const rR = streamR + spread;
+
+            // Draw ripple row as pixel blocks
+            for (let px = rL; px < rR; px += PX) {
+                const dist = Math.abs(px + PX / 2 - cx);
+                const maxDist = (rR - rL) / 2;
+                // Dither: skip some edge pixels for a rough look
+                if (dist > maxDist - PX && ((Math.floor(px / PX) + animFrame) % 2 === 0)) continue;
+
+                ctx.fillStyle = ripple.color;
+                ctx.fillRect(px, ry, PX, PX);
+            }
+        }
+
+        // Animated splash droplets
+        const splashFrame = Math.floor(frameCount / 4);
+        for (let i = 0; i < 4; i++) {
+            const phase = (splashFrame + i * 3) % 8;
+            const dx = ((i * 17 + splashFrame * 7) % (streamW + PX * 8)) - PX * 4;
+            const dy = (isTop ? 1 : -1) * (PX * 4 + phase * PX);
+            const sx = streamL + dx;
+            const sy = edgeY + dy;
+
+            // Small pixel droplet
+            if (phase < 5) {
+                ctx.fillStyle = phase < 3 ? WATER_WHITE : WATER_HIGHLIGHT;
+                ctx.fillRect(sx, sy, PX, PX);
+            }
+        }
+    }
+
+    function spawnFireParticles() {
+        if (frameCount % 2 === 0) {
+            particles.push({
+                x: moltres.x + 2,
+                y: moltres.y + moltres.height / 2 + 5 + (Math.random() - 0.5) * 8,
+                vx: -Math.random() * 2 - 1,
+                vy: (Math.random() - 0.5) * 1.5,
+                life: 1,
+                decay: Math.random() * 0.03 + 0.02,
+                size: Math.random() * 4 + 2,
+                type: 'fire',
+            });
+        }
+    }
+
+    function spawnWaterSplash(x, y) {
+        for (let i = 0; i < 5; i++) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                life: 1,
+                decay: 0.05,
+                size: Math.random() * 3 + 1,
+                type: 'water',
+            });
+        }
+    }
+
+    function updateParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= p.decay;
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+    }
+
+    function drawParticles() {
+        for (const p of particles) {
+            if (p.type === 'fire') {
+                const r = Math.floor(255);
+                const g = Math.floor(100 + p.life * 100);
+                const b = Math.floor(p.life * 30);
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${p.life})`;
+            } else {
+                ctx.fillStyle = `rgba(100, 180, 255, ${p.life})`;
+            }
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function drawBackground() {
+        // Sky gradient
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        skyGrad.addColorStop(0, '#0f0c29');
+        skyGrad.addColorStop(0.5, '#1a1a4e');
+        skyGrad.addColorStop(1, '#24243e');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Stars
+        for (const star of stars) {
+            star.twinkle += 0.02;
+            const alpha = 0.4 + Math.sin(star.twinkle) * 0.3;
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Clouds
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        for (const cloud of clouds) {
+            cloud.x -= cloud.speed;
+            if (cloud.x + cloud.width < 0) cloud.x = canvas.width + cloud.width;
+            ctx.beginPath();
+            ctx.ellipse(cloud.x, cloud.y, cloud.width, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function drawScore() {
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 36px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.lineWidth = 4;
+        ctx.strokeText(score, canvas.width / 2, 50);
+        ctx.fillText(score, canvas.width / 2, 50);
+    }
+
+    function drawStartScreen() {
+        drawBackground();
+        drawMoltres(moltres.x, moltres.y + Math.sin(frameCount * 0.05) * 10, 0);
+
+        // Title
+        ctx.fillStyle = '#ff6600';
+        ctx.font = 'bold 42px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.lineWidth = 5;
+        ctx.strokeText('FLAPPY', canvas.width / 2, 140);
+        ctx.fillText('FLAPPY', canvas.width / 2, 140);
+
+        ctx.fillStyle = '#ffaa00';
+        ctx.strokeText('MOLTRES', canvas.width / 2, 185);
+        ctx.fillText('MOLTRES', canvas.width / 2, 185);
+
+        // Subtitle
+        ctx.fillStyle = 'rgba(255, 200, 100, 0.8)';
+        ctx.font = '16px "Segoe UI", sans-serif';
+        ctx.fillText('Dodge the Water Cannons!', canvas.width / 2, 215);
+
+        // Instructions
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '18px "Segoe UI", sans-serif';
+        ctx.fillText('Click or press Space to fly', canvas.width / 2, canvas.height - 120);
+
+        // Fire type badge
+        drawTypeBadge(canvas.width / 2 - 55, 230, 'FIRE', '#e74c3c');
+        drawTypeBadge(canvas.width / 2 + 5, 230, 'FLYING', '#87ceeb');
+
+        if (highScore > 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.font = '14px "Segoe UI", sans-serif';
+            ctx.fillText(`High Score: ${highScore}`, canvas.width / 2, canvas.height - 90);
+        }
+    }
+
+    function drawTypeBadge(x, y, text, color) {
+        ctx.fillStyle = color;
+        const w = 50, h = 20, r = 4;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 11px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(text, x + w / 2, y + 14);
+    }
+
+    function drawDeadScreen() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = 'bold 28px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('It\'s super effective!', canvas.width / 2, 220);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '20px "Segoe UI", sans-serif';
+        ctx.fillText(`Score: ${score}`, canvas.width / 2, 270);
+
+        if (score >= highScore && score > 0) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.font = 'bold 16px "Segoe UI", sans-serif';
+            ctx.fillText('New High Score!', canvas.width / 2, 300);
+        }
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = '16px "Segoe UI", sans-serif';
+        ctx.fillText('Click or press Space to retry', canvas.width / 2, 350);
+    }
+
+    function checkCollision() {
+        // Moltres hitbox (body core only, generous to player)
+        const mx = moltres.x + 14;
+        const my = moltres.y + 10;
+        const mw = moltres.width - 28;
+        const mh = moltres.height - 20;
+
+        // Top/bottom bounds
+        if (my < 0 || my + mh > canvas.height) return true;
+
+        for (const cannon of cannons) {
+            const cx = cannon.x;
+            const cw = cannonConfig.width;
+            const gapTop = cannon.gapY - cannonConfig.gap / 2;
+            const gapBottom = cannon.gapY + cannonConfig.gap / 2;
+
+            if (mx + mw > cx && mx < cx + cw) {
+                if (my < gapTop || my + mh > gapBottom) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function update() {
+        frameCount++;
+
+        if (gameState === 'playing') {
+            // Physics
+            moltres.velocity += moltres.gravity;
+            moltres.y += moltres.velocity;
+
+            // Rotation based on velocity
+            moltres.rotation = Math.max(-0.5, Math.min(moltres.velocity * 0.07, 1.2));
+
+            // Fire particles
+            spawnFireParticles();
+
+            // Spawn cannons
+            cannonTimer++;
+            if (cannonTimer >= cannonConfig.spawnInterval) {
+                cannonTimer = 0;
+                const gapY = Math.random() * (canvas.height - 200) + 100;
+                cannons.push({
+                    x: canvas.width,
+                    gapY: gapY,
+                    scored: false,
+                });
+            }
+
+            // Move cannons
+            for (let i = cannons.length - 1; i >= 0; i--) {
+                cannons[i].x -= cannonConfig.speed;
+
+                // Score
+                if (!cannons[i].scored && cannons[i].x + cannonConfig.width < moltres.x) {
+                    cannons[i].scored = true;
+                    score++;
+                }
+
+                // Remove off-screen
+                if (cannons[i].x + cannonConfig.width < -10) {
+                    cannons.splice(i, 1);
+                }
+            }
+
+            // Collision
+            if (checkCollision()) {
+                gameState = 'dead';
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('moltresHighScore', highScore.toString());
+                }
+                // Water splash on death
+                spawnWaterSplash(moltres.x + moltres.width / 2, moltres.y + moltres.height / 2);
+                // Submit score to leaderboard
+                if (playerName && score > 0) {
+                    submitScore(playerName, score);
+                }
+            }
+
+            updateParticles();
+
+            // Speed up slightly over time
+            if (frameCount % 600 === 0 && cannonConfig.speed < 3.0) {
+                cannonConfig.speed += 0.1;
+            }
+        }
+    }
+
+    function draw() {
+        drawBackground();
+
+        if (gameState === 'start') {
+            drawStartScreen();
+        } else if (gameState === 'playing') {
+            for (const cannon of cannons) {
+                drawWaterCannon(cannon.x, cannon.gapY, true);
+                drawWaterCannon(cannon.x, cannon.gapY, false);
+            }
+
+            drawParticles();
+            drawMoltres(moltres.x, moltres.y, moltres.rotation);
+            drawScore();
+        } else if (gameState === 'dead') {
+            for (const cannon of cannons) {
+                drawWaterCannon(cannon.x, cannon.gapY, true);
+                drawWaterCannon(cannon.x, cannon.gapY, false);
+            }
+            drawParticles();
+            drawMoltres(moltres.x, moltres.y, moltres.rotation);
+            drawScore();
+            drawDeadScreen();
+        }
+    }
+
+    // Lock to 60fps — skip extra frames on high-refresh displays
+    const FRAME_DURATION = 1000 / 60;
+    let lastTime = 0;
+
+    function gameLoop(timestamp) {
+        if (lastTime === 0) lastTime = timestamp - FRAME_DURATION;
+        const delta = timestamp - lastTime;
+
+        if (delta >= FRAME_DURATION) {
+            lastTime = timestamp - (delta % FRAME_DURATION);
+            update();
+        }
+
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // Reset speed on restart
+    const originalSpeed = cannonConfig.speed;
+    const originalReset = reset;
+    reset = function () {
+        originalReset();
+        cannonConfig.speed = originalSpeed;
+    };
+
+    // ---- Init ----
+    document.getElementById('lb-player-name').textContent = playerName || '\u2014';
+    if (!playerName) {
+        promptName();
+    }
+    loadLeaderboard();
+    requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
