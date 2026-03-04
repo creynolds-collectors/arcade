@@ -110,6 +110,13 @@
         .tag-sports { background: #375a7f; color: #fff; }
         .tag-grading { background: #02BA8D; color: #fff; }
 
+        /* Slab Runner card theme */
+        .runner-bg {
+            background: linear-gradient(135deg, #1a1a30 0%, #2a2a40 50%, #1a1a2e 100%);
+        }
+        .tag-endless { background: #8B6914; color: #fff; }
+        .tag-runner { background: #CC5500; color: #fff; }
+
         /* Coming soon card */
         .game-card.coming-soon {
             opacity: 0.4;
@@ -166,6 +173,21 @@
                 <div class="card-tags">
                     <span class="tag tag-sports">Sports</span>
                     <span class="tag tag-grading">Grading</span>
+                </div>
+            </div>
+        </a>
+
+        <!-- Slab Runner -->
+        <a href="slab-runner/" class="game-card">
+            <div class="card-thumbnail runner-bg">
+                <canvas id="runner-preview" width="280" height="180"></canvas>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Slab Runner</div>
+                <div class="card-desc">Run the gauntlet! Jump over hazards to protect your PSA 10 slab.</div>
+                <div class="card-tags">
+                    <span class="tag tag-endless">Endless</span>
+                    <span class="tag tag-runner">Runner</span>
                 </div>
             </div>
         </a>
@@ -366,6 +388,94 @@
         requestAnimationFrame(drawSorterPreview);
     }
     drawSorterPreview();
+
+    // Slab Runner preview — animated slab on conveyor
+    const rc = document.getElementById('runner-preview');
+    const rx = rc.getContext('2d');
+
+    function drawRunnerPreview() {
+        rx.clearRect(0, 0, 280, 180);
+
+        const groundY = 135;
+        const beltScroll = frame * 2;
+
+        // Background wall
+        rx.fillStyle = '#1a1a30';
+        rx.fillRect(0, 0, 280, groundY);
+
+        // Wall lines
+        rx.strokeStyle = '#222240';
+        rx.lineWidth = 0.5;
+        for (let y = 20; y < groundY; y += 30) {
+            rx.beginPath();
+            rx.moveTo(0, y);
+            rx.lineTo(280, y);
+            rx.stroke();
+        }
+
+        // Conveyor belt
+        rx.fillStyle = '#555';
+        rx.fillRect(0, groundY, 280, 20);
+        rx.strokeStyle = '#444';
+        rx.lineWidth = 1;
+        for (let lx = -20 + (beltScroll % 30); lx < 300; lx += 30) {
+            rx.beginPath();
+            rx.moveTo(lx, groundY + 2);
+            rx.lineTo(lx, groundY + 18);
+            rx.stroke();
+        }
+        rx.fillStyle = '#666';
+        rx.fillRect(0, groundY, 280, 2);
+        rx.fillRect(0, groundY + 18, 280, 2);
+
+        // Floor
+        rx.fillStyle = '#2a2a40';
+        rx.fillRect(0, groundY + 20, 280, 25);
+
+        // Obstacles scrolling
+        const obstacleX1 = ((200 - beltScroll) % 280 + 280) % 280;
+        const obstacleX2 = ((350 - beltScroll) % 280 + 280) % 280;
+
+        // Water puddle
+        rx.fillStyle = 'rgba(56, 136, 216, 0.7)';
+        rx.beginPath();
+        rx.ellipse(obstacleX1, groundY - 3, 18, 5, 0, 0, Math.PI * 2);
+        rx.fill();
+
+        // Book
+        rx.fillStyle = '#444488';
+        rx.fillRect(obstacleX2, groundY - 24, 12, 24);
+        rx.fillStyle = '#ddd';
+        rx.fillRect(obstacleX2 + 3, groundY - 22, 7, 20);
+
+        // Slab character
+        const slabX = 60;
+        const jumpCycle = frame % 120;
+        const slabY = jumpCycle < 30
+            ? groundY - 34 - Math.sin(jumpCycle / 30 * Math.PI) * 30
+            : groundY - 34;
+
+        // Slab case
+        rx.fillStyle = '#e8e0d0';
+        rx.beginPath();
+        rx.roundRect(slabX - 1, slabY - 1, 26, 36, 3);
+        rx.fill();
+        // Grade bar
+        rx.fillStyle = '#02BA8D';
+        rx.beginPath();
+        rx.roundRect(slabX, slabY, 24, 10, [2, 2, 0, 0]);
+        rx.fill();
+        rx.fillStyle = '#fff';
+        rx.font = 'bold 7px "Lato", sans-serif';
+        rx.textAlign = 'center';
+        rx.fillText('PSA 10', slabX + 12, slabY + 8);
+        // Card inner
+        rx.fillStyle = '#2d5a1e';
+        rx.fillRect(slabX + 2, slabY + 10, 20, 24);
+
+        requestAnimationFrame(drawRunnerPreview);
+    }
+    drawRunnerPreview();
     </script>
 </body>
 </html>
