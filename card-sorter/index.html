@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Sorter</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            gap: 20px;
+            padding: 20px;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        #game-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        canvas {
+            border: 3px solid #375a7f;
+            border-radius: 4px;
+            cursor: pointer;
+            image-rendering: pixelated;
+        }
+
+        /* Back button */
+        #back-btn {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            background: rgba(30, 30, 58, 0.9);
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #aaa;
+            font-size: 13px;
+            padding: 6px 12px;
+            cursor: pointer;
+            text-decoration: none;
+            z-index: 100;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        #back-btn:hover { color: #ffaa00; border-color: #ffaa00; }
+
+        /* Leaderboard panel */
+        #leaderboard-panel {
+            width: 220px;
+            flex-shrink: 0;
+            background: #1e1e3a;
+            border: 2px solid #375a7f;
+            border-radius: 4px;
+            padding: 12px;
+            color: #fff;
+            font-size: 13px;
+            align-self: center;
+        }
+        .lb-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: #ffaa00;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #333360;
+            padding-bottom: 8px;
+        }
+        .lb-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 6px;
+            border-radius: 4px;
+            margin-bottom: 3px;
+            background: #252545;
+        }
+        .lb-row.lb-me {
+            background: #3d2000;
+            border: 1px solid #ff6600;
+        }
+        .lb-rank {
+            width: 24px;
+            text-align: right;
+            color: #666;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+        .lb-row:nth-child(1) .lb-rank { color: #ffd700; font-weight: bold; }
+        .lb-row:nth-child(2) .lb-rank { color: #c0c0c0; font-weight: bold; }
+        .lb-row:nth-child(3) .lb-rank { color: #cd7f32; font-weight: bold; }
+        .lb-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #ccc;
+        }
+        .lb-row.lb-me .lb-name { color: #ffaa44; }
+        .lb-score {
+            font-weight: bold;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .lb-status {
+            text-align: center;
+            font-size: 11px;
+            color: #555;
+            margin-top: 8px;
+            min-height: 16px;
+        }
+        .lb-footer {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #333360;
+            font-size: 11px;
+            color: #777;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        #lb-player-name {
+            color: #ffaa44;
+            font-weight: bold;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #lb-change-name {
+            background: none;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #888;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 5px;
+            line-height: 1;
+        }
+        #lb-change-name:hover { color: #ffaa44; border-color: #ffaa44; }
+
+        /* Name modal */
+        .nm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        .nm-overlay.hidden { display: none; }
+        .nm-box {
+            background: #1e1e3a;
+            border: 2px solid #375a7f;
+            border-radius: 4px;
+            padding: 28px 24px;
+            width: 300px;
+            text-align: center;
+        }
+        .nm-title {
+            color: #ffaa00;
+            font-weight: bold;
+            font-size: 16px;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+        }
+        .nm-subtitle {
+            color: #777;
+            font-size: 12px;
+            margin-bottom: 18px;
+        }
+        .nm-input {
+            width: 100%;
+            background: #252545;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 16px;
+            padding: 10px 12px;
+            margin-bottom: 16px;
+            text-align: center;
+            outline: none;
+        }
+        .nm-input:focus { border-color: #ffaa00; }
+        .nm-buttons { display: flex; gap: 8px; justify-content: center; }
+        .nm-btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .nm-btn-confirm { background: #375a7f; color: #fff; }
+        .nm-btn-confirm:hover { background: #2a4a6a; }
+        .nm-btn-skip { background: #333; color: #888; }
+        .nm-btn-skip:hover { background: #444; color: #aaa; }
+
+        @media (max-width: 780px) {
+            body { flex-direction: column; align-items: center; }
+            #leaderboard-panel { width: 100%; max-width: 500px; }
+        }
+    </style>
+</head>
+<body>
+    <a href="../" id="back-btn">&#8592; Home</a>
+
+    <!-- Name entry modal -->
+    <div id="name-modal" class="nm-overlay hidden">
+        <div class="nm-box">
+            <div class="nm-title">ENTER YOUR NAME</div>
+            <div class="nm-subtitle">Your name will appear on the leaderboard</div>
+            <input id="nm-input" type="text" class="nm-input" maxlength="20" placeholder="Grader name...">
+            <div class="nm-buttons">
+                <button class="nm-btn nm-btn-skip" id="nm-skip-btn" onclick="skipName()">Skip</button>
+                <button class="nm-btn nm-btn-confirm" onclick="confirmName()">Let's Go!</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-wrapper">
+        <canvas id="game" width="600" height="700"></canvas>
+    </div>
+
+    <div id="leaderboard-panel">
+        <div class="lb-title">TOP GRADERS</div>
+        <div id="lb-list">
+            <div style="text-align:center;color:#555;font-size:12px;padding:10px;">Loading...</div>
+        </div>
+        <div id="lb-status" class="lb-status"></div>
+        <div class="lb-footer">
+            Playing as: <span id="lb-player-name">&mdash;</span>
+            <button id="lb-change-name" onclick="promptName()">&#x270E;</button>
+        </div>
+    </div>
+
+    <script>
+    // ---- Supabase setup ----
+    const SUPABASE_URL = 'https://tvuohothipklgwzcvmva.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2dW9ob3RoaXBrbGd3emN2bXZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MjAyNzEsImV4cCI6MjA4NjQ5NjI3MX0.ZWJPGd3Yt-Opv3Oaut3xvUZNhGrQ3P8FrQuhN-wCb6I';
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ---- Player name ----
+    let playerName = localStorage.getItem('cardSorterPlayerName') || '';
+
+    function promptName() {
+        const modal = document.getElementById('name-modal');
+        const input = document.getElementById('nm-input');
+        input.value = playerName;
+        document.getElementById('nm-skip-btn').style.display = playerName ? 'block' : 'none';
+        modal.classList.remove('hidden');
+        setTimeout(() => input.focus(), 50);
+    }
+
+    function confirmName() {
+        const val = document.getElementById('nm-input').value.trim();
+        if (!val) return;
+        playerName = val.slice(0, 20);
+        localStorage.setItem('cardSorterPlayerName', playerName);
+        document.getElementById('name-modal').classList.add('hidden');
+        document.getElementById('lb-player-name').textContent = playerName;
+        loadLeaderboard();
+    }
+
+    function skipName() {
+        document.getElementById('name-modal').classList.add('hidden');
+    }
+
+    document.getElementById('nm-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmName();
+    });
+
+    // ---- Leaderboard ----
+    async function submitScore(name, finalScore) {
+        setLbStatus('Submitting...');
+        const { error } = await db.from('card_sorter_scores').insert([{
+            player_name: name,
+            score: finalScore
+        }]);
+        if (error) {
+            console.warn('Score submit failed:', error.message);
+            setLbStatus('Submit failed');
+            return;
+        }
+        await loadLeaderboard();
+    }
+
+    async function loadLeaderboard() {
+        const { data, error } = await db
+            .from('card_sorter_scores')
+            .select('player_name, score')
+            .order('score', { ascending: false })
+            .limit(10);
+        if (error) {
+            console.warn('Leaderboard load failed:', error.message);
+            setLbStatus('Could not load');
+            return;
+        }
+        renderLeaderboard(data || []);
+    }
+
+    function renderLeaderboard(rows) {
+        const list = document.getElementById('lb-list');
+        if (rows.length === 0) {
+            list.innerHTML = '<div style="text-align:center;color:#555;font-size:12px;padding:10px;">No scores yet!<br>Be the first.</div>';
+            setLbStatus('');
+            return;
+        }
+        const rankLabels = ['1st', '2nd', '3rd'];
+        list.innerHTML = rows.map((row, i) => {
+            const isMe = playerName && row.player_name.toLowerCase() === playerName.toLowerCase();
+            const rank = i < 3 ? rankLabels[i] : `${i + 1}th`;
+            return `<div class="lb-row${isMe ? ' lb-me' : ''}">
+                <span class="lb-rank">${rank}</span>
+                <span class="lb-name" title="${escapeHtml(row.player_name)}">${escapeHtml(row.player_name)}</span>
+                <span class="lb-score">${row.score}</span>
+            </div>`;
+        }).join('');
+        setLbStatus('');
+    }
+
+    function setLbStatus(msg) {
+        document.getElementById('lb-status').textContent = msg;
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ---- Canvas & Game ----
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    function resizeCanvas() {
+        const panelWidth = window.innerWidth > 780 ? 260 : 0;
+        const padding = 40;
+        const maxH = window.innerHeight - padding;
+        const maxW = window.innerWidth - padding - panelWidth;
+        const scale = Math.min(maxH / H, maxW / W);
+        canvas.style.width = Math.floor(W * scale) + 'px';
+        canvas.style.height = Math.floor(H * scale) + 'px';
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // ---- Grade config ----
+    const GRADES = [
+        { grade: 10, label: 'GEM MINT', color: '#02BA8D', key: '1' },
+        { grade: 9,  label: 'MINT',     color: '#375A7F', key: '2' },
+        { grade: 8,  label: 'NM-MT',    color: '#8B5CF6', key: '3' },
+        { grade: 7,  label: 'NEAR MINT',color: '#FFA500', key: '4' },
+        { grade: 6,  label: 'EX-MT',    color: '#E74C3C', key: '5' },
+        { grade: 5,  label: 'EXCELLENT',color: '#D4A017', key: '6' },
+    ];
+
+    // ---- Sports card art themes ----
+    const SPORTS = [
+        {
+            name: 'Baseball',
+            bg: '#2d5a1e',
+            draw(cx, cy, s) {
+                // Baseball diamond
+                ctx.strokeStyle = '#ddd';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - 18*s); // top
+                ctx.lineTo(cx + 18*s, cy); // right
+                ctx.lineTo(cx, cy + 18*s); // bottom
+                ctx.lineTo(cx - 18*s, cy); // left
+                ctx.closePath();
+                ctx.stroke();
+                // Bases
+                for (const [bx,by] of [[0,-18],[18,0],[0,18],[-18,0]]) {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(cx + bx*s - 3, cy + by*s - 3, 6, 6);
+                }
+                // Ball
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(cx, cy, 8*s, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#e74c3c';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(cx - 2*s, cy, 6*s, -0.8, 0.8);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(cx + 2*s, cy, 6*s, Math.PI - 0.8, Math.PI + 0.8);
+                ctx.stroke();
+            }
+        },
+        {
+            name: 'Basketball',
+            bg: '#5a3a1e',
+            draw(cx, cy, s) {
+                // Court lines
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(cx - 25*s, cy);
+                ctx.lineTo(cx + 25*s, cy);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(cx, cy, 15*s, 0, Math.PI * 2);
+                ctx.stroke();
+                // Basketball
+                ctx.fillStyle = '#e87830';
+                ctx.beginPath();
+                ctx.arc(cx, cy, 10*s, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 10*s, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(cx - 10*s, cy);
+                ctx.lineTo(cx + 10*s, cy);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - 10*s);
+                ctx.lineTo(cx, cy + 10*s);
+                ctx.stroke();
+            }
+        },
+        {
+            name: 'Football',
+            bg: '#1e3a1e',
+            draw(cx, cy, s) {
+                // Field lines
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                for (let i = -2; i <= 2; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 25*s, cy + i * 10*s);
+                    ctx.lineTo(cx + 25*s, cy + i * 10*s);
+                    ctx.stroke();
+                }
+                // Football
+                ctx.fillStyle = '#8B4513';
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, 14*s, 8*s, -0.3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(cx - 6*s, cy - 6*s);
+                ctx.lineTo(cx + 6*s, cy + 6*s);
+                ctx.stroke();
+                // Laces
+                for (let i = -2; i <= 2; i++) {
+                    const lx = cx + i * 3*s;
+                    const ly = cy + i * -0.5*s;
+                    ctx.beginPath();
+                    ctx.moveTo(lx - 2*s, ly - 2*s);
+                    ctx.lineTo(lx + 2*s, ly + 2*s);
+                    ctx.stroke();
+                }
+            }
+        },
+        {
+            name: 'Hockey',
+            bg: '#1e2a4a',
+            draw(cx, cy, s) {
+                // Ice rink circle
+                ctx.strokeStyle = '#4488cc';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 20*s, 0, Math.PI * 2);
+                ctx.stroke();
+                // Center line
+                ctx.strokeStyle = '#cc3333';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(cx - 25*s, cy);
+                ctx.lineTo(cx + 25*s, cy);
+                ctx.stroke();
+                // Puck
+                ctx.fillStyle = '#111';
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, 8*s, 5*s, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, 8*s, 5*s, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                // Stick
+                ctx.strokeStyle = '#c8a060';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(cx + 10*s, cy - 18*s);
+                ctx.lineTo(cx + 4*s, cy + 2*s);
+                ctx.lineTo(cx - 6*s, cy + 6*s);
+                ctx.stroke();
+            }
+        }
+    ];
+
+    // Fake player names for cards
+    const CARD_NAMES = [
+        'M. Jordan', 'K. Bryant', 'L. James', 'B. Ruth', 'M. Trout',
+        'T. Brady', 'W. Gretzky', 'A. Judge', 'S. Ohtani', 'P. Mahomes',
+        'J. Montana', 'D. Jeter', 'S. Curry', 'M. Mantle', 'W. Mays',
+        'H. Aaron', 'B. Bonds', 'K. Griffey Jr.', 'T. Duncan', 'J. Elway',
+        'N. Ryan', 'R. Clemens', 'K. Durant', 'G. Antetokounmpo', 'C. McDavid',
+    ];
+
+    // ---- Game state ----
+    let gameState = 'start';
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem('cardSorterHighScore') || '0');
+    let lives = 3;
+    let streak = 0;
+    let bestStreak = 0;
+    let cardsSorted = 0;
+    let frameCount = 0;
+    let level = 1;
+
+    // Active falling cards
+    let cards = [];
+    let spawnTimer = 0;
+    let spawnInterval = 100; // frames between spawns
+    let fallSpeed = 1.5;
+
+    // Visual feedback
+    let feedbacks = []; // floating +score texts
+    let binFlash = [-1, 0]; // [binIndex, framesLeft]
+    let shakeFrames = 0;
+
+    // Background stars
+    const stars = Array.from({ length: 50 }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        size: Math.random() * 2 + 0.5,
+        twinkle: Math.random() * Math.PI * 2,
+    }));
+
+    // ---- Card object ----
+    function spawnCard() {
+        const gradeIdx = Math.floor(Math.random() * GRADES.length);
+        const sportIdx = Math.floor(Math.random() * SPORTS.length);
+        const nameIdx = Math.floor(Math.random() * CARD_NAMES.length);
+
+        const cardW = 70;
+        const margin = 30;
+        const x = margin + Math.random() * (W - cardW - margin * 2);
+
+        cards.push({
+            x: x,
+            y: -120,
+            width: cardW,
+            height: 100,
+            gradeIdx: gradeIdx,
+            sportIdx: sportIdx,
+            playerName: CARD_NAMES[nameIdx],
+            speed: fallSpeed + Math.random() * 0.3,
+        });
+    }
+
+    // ---- Bin dimensions ----
+    const BIN_H = 70;
+    const BIN_PAD = 8;
+    const BIN_Y = H - BIN_H - 10;
+
+    function getBinX(i) {
+        const totalPad = BIN_PAD * (GRADES.length + 1);
+        const binW = (W - totalPad) / GRADES.length;
+        return BIN_PAD + i * (binW + BIN_PAD);
+    }
+
+    function getBinW() {
+        const totalPad = BIN_PAD * (GRADES.length + 1);
+        return (W - totalPad) / GRADES.length;
+    }
+
+    // ---- Input handling ----
+    function sortCard(binIdx) {
+        if (gameState !== 'playing' || cards.length === 0) return;
+
+        // Find the lowest (closest to bins) card
+        let lowestIdx = 0;
+        for (let i = 1; i < cards.length; i++) {
+            if (cards[i].y > cards[lowestIdx].y) lowestIdx = i;
+        }
+
+        const card = cards[lowestIdx];
+        const correct = card.gradeIdx === binIdx;
+
+        // Flash the bin
+        binFlash = [binIdx, 12];
+
+        if (correct) {
+            // Score: base 10 + speed bonus + streak bonus
+            const distFromBottom = BIN_Y - card.y;
+            const speedBonus = Math.floor(Math.max(0, distFromBottom) / 20);
+            streak++;
+            if (streak > bestStreak) bestStreak = streak;
+            const streakMult = Math.min(streak, 10);
+            const points = (10 + speedBonus) * streakMult;
+            score += points;
+            cardsSorted++;
+
+            // Feedback
+            feedbacks.push({
+                x: card.x + card.width / 2,
+                y: card.y,
+                text: `+${points}`,
+                subtext: streak > 1 ? `${streak}x streak!` : '',
+                color: GRADES[binIdx].color,
+                life: 60,
+            });
+
+            // Level up every 8 cards
+            if (cardsSorted % 8 === 0) {
+                level++;
+                fallSpeed += 0.25;
+                if (spawnInterval > 30) spawnInterval -= 10;
+                feedbacks.push({
+                    x: W / 2,
+                    y: H / 2 - 40,
+                    text: `LEVEL ${level}!`,
+                    subtext: level >= 3 ? 'Multi-drop!' : 'Speed up!',
+                    color: '#ffaa00',
+                    life: 90,
+                });
+            }
+        } else {
+            // Wrong bin
+            lives--;
+            streak = 0;
+            shakeFrames = 12;
+            feedbacks.push({
+                x: card.x + card.width / 2,
+                y: card.y,
+                text: 'WRONG!',
+                subtext: `Was PSA ${GRADES[card.gradeIdx].grade}`,
+                color: '#e74c3c',
+                life: 60,
+            });
+
+            if (lives <= 0) {
+                gameOver();
+            }
+        }
+
+        cards.splice(lowestIdx, 1);
+    }
+
+    function gameOver() {
+        gameState = 'dead';
+        shakeFrames = 180; // 3 seconds at 60fps
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('cardSorterHighScore', highScore.toString());
+        }
+        if (playerName && score > 0) {
+            submitScore(playerName, score);
+        }
+    }
+
+    function reset() {
+        score = 0;
+        lives = 3;
+        streak = 0;
+        bestStreak = 0;
+        cardsSorted = 0;
+        level = 1;
+        fallSpeed = 1.5;
+        spawnInterval = 100;
+        cards = [];
+        feedbacks = [];
+        spawnTimer = 0;
+        shakeFrames = 0;
+        frameCount = 0;
+    }
+
+    // Click on bins
+    canvas.addEventListener('click', (e) => {
+        if (gameState === 'start') {
+            gameState = 'playing';
+            reset();
+            return;
+        }
+        if (gameState === 'dead') {
+            gameState = 'start';
+            return;
+        }
+
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = W / rect.width;
+        const scaleY = H / rect.height;
+        const mx = (e.clientX - rect.left) * scaleX;
+        const my = (e.clientY - rect.top) * scaleY;
+
+        // Check bin clicks
+        const binW = getBinW();
+        if (my >= BIN_Y && my <= BIN_Y + BIN_H) {
+            for (let i = 0; i < GRADES.length; i++) {
+                const bx = getBinX(i);
+                if (mx >= bx && mx <= bx + binW) {
+                    sortCard(i);
+                    return;
+                }
+            }
+        }
+    });
+
+    // Keyboard input
+    document.addEventListener('keydown', (e) => {
+        if (gameState === 'start') {
+            if (e.code === 'Space') {
+                gameState = 'playing';
+                reset();
+            }
+            return;
+        }
+        if (gameState === 'dead') {
+            if (e.code === 'Space') gameState = 'start';
+            return;
+        }
+
+        const keyMap = { 'Digit1': 0, 'Digit2': 1, 'Digit3': 2, 'Digit4': 3, 'Digit5': 4, 'Digit6': 5,
+                         'KeyA': 0, 'KeyS': 1, 'KeyD': 2, 'KeyF': 3, 'KeyG': 4, 'KeyH': 5 };
+        if (e.code in keyMap) {
+            e.preventDefault();
+            sortCard(keyMap[e.code]);
+        }
+    });
+
+    // ---- Drawing ----
+
+    function drawBackground() {
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+        skyGrad.addColorStop(0, '#0f0c29');
+        skyGrad.addColorStop(0.5, '#1a1a4e');
+        skyGrad.addColorStop(1, '#24243e');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, W, H);
+
+        for (const star of stars) {
+            star.twinkle += 0.02;
+            const alpha = 0.3 + Math.sin(star.twinkle) * 0.2;
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function drawSlab(x, y, w, h, gradeIdx, sportIdx, name) {
+        const g = GRADES[gradeIdx];
+        const sport = SPORTS[sportIdx];
+        const r = 4;
+
+        // Slab case (outer)
+        ctx.fillStyle = '#e8e0d0';
+        ctx.beginPath();
+        ctx.roundRect(x - 3, y - 3, w + 6, h + 6, r + 2);
+        ctx.fill();
+
+        // Slab case border
+        ctx.strokeStyle = '#bbb';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(x - 3, y - 3, w + 6, h + 6, r + 2);
+        ctx.stroke();
+
+        // Inner card area
+        ctx.fillStyle = sport.bg;
+        ctx.beginPath();
+        ctx.roundRect(x, y + 20, w, h - 20, [0, 0, r, r]);
+        ctx.fill();
+
+        // Sport artwork
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(x, y + 20, w, h - 20, [0, 0, r, r]);
+        ctx.clip();
+        sport.draw(x + w / 2, y + 20 + (h - 20) / 2, 0.7);
+        ctx.restore();
+
+        // Player name at bottom of card
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(x, y + h - 16, w, 16);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 9px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(name, x + w / 2, y + h - 5);
+
+        // Grade label bar at top
+        ctx.fillStyle = g.color;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, 20, [r, r, 0, 0]);
+        ctx.fill();
+
+        // PSA logo + grade text
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 11px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`PSA ${g.grade}`, x + w / 2, y + 14);
+    }
+
+    function drawBins() {
+        const binW = getBinW();
+
+        for (let i = 0; i < GRADES.length; i++) {
+            const g = GRADES[i];
+            const bx = getBinX(i);
+            const isFlashing = binFlash[0] === i && binFlash[1] > 0;
+
+            // Bin background
+            ctx.fillStyle = isFlashing ? g.color : '#1a1a3e';
+            ctx.globalAlpha = isFlashing ? 0.4 + (binFlash[1] / 12) * 0.4 : 1;
+            ctx.beginPath();
+            ctx.roundRect(bx, BIN_Y, binW, BIN_H, 4);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+
+            // Bin border
+            ctx.strokeStyle = g.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(bx, BIN_Y, binW, BIN_H, 4);
+            ctx.stroke();
+
+            // Grade label
+            ctx.fillStyle = g.color;
+            ctx.font = 'bold 13px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`PSA`, bx + binW / 2, BIN_Y + 22);
+            ctx.font = 'bold 20px "Segoe UI", sans-serif';
+            ctx.fillText(`${g.grade}`, bx + binW / 2, BIN_Y + 45);
+
+            // Key hint
+            ctx.fillStyle = '#555';
+            ctx.font = '9px "Segoe UI", sans-serif';
+            ctx.fillText(`[${g.key}]`, bx + binW / 2, BIN_Y + 60);
+        }
+    }
+
+    function drawHUD() {
+        // Score
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 28px "Segoe UI", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = 3;
+        ctx.strokeText(`${score}`, 16, 34);
+        ctx.fillText(`${score}`, 16, 34);
+
+        // Streak
+        if (streak > 1) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.font = 'bold 14px "Segoe UI", sans-serif';
+            ctx.fillText(`${streak}x Streak`, 16, 54);
+        }
+
+        // Level
+        ctx.fillStyle = '#888';
+        ctx.font = '12px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Level ${level}`, W / 2, 20);
+
+        // Lives
+        ctx.textAlign = 'right';
+        ctx.font = '20px "Segoe UI", sans-serif';
+        let heartsStr = '';
+        for (let i = 0; i < 3; i++) {
+            heartsStr += i < lives ? '\u2764' : '\u2661';
+        }
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillText(heartsStr, W - 16, 32);
+    }
+
+    function drawFeedbacks() {
+        for (let i = feedbacks.length - 1; i >= 0; i--) {
+            const f = feedbacks[i];
+            f.y -= 1.2;
+            f.life--;
+            const alpha = Math.min(1, f.life / 30);
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = f.color;
+            ctx.font = 'bold 18px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(f.text, f.x, f.y);
+            if (f.subtext) {
+                ctx.font = '12px "Segoe UI", sans-serif';
+                ctx.fillText(f.subtext, f.x, f.y + 18);
+            }
+            ctx.globalAlpha = 1;
+            if (f.life <= 0) feedbacks.splice(i, 1);
+        }
+    }
+
+    function drawStartScreen() {
+        drawBackground();
+
+        // Animated demo card
+        const demoY = 180 + Math.sin(frameCount * 0.03) * 20;
+        const demoGrade = Math.floor(frameCount / 90) % GRADES.length;
+        const demoSport = Math.floor(frameCount / 120) % SPORTS.length;
+        drawSlab(W / 2 - 35, demoY, 70, 100, demoGrade, demoSport, 'M. Jordan');
+
+        // Title
+        ctx.fillStyle = '#375a7f';
+        ctx.font = 'bold 42px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 5;
+        ctx.strokeText('CARD', W / 2, 80);
+        ctx.fillText('CARD', W / 2, 80);
+
+        ctx.fillStyle = '#ffaa00';
+        ctx.strokeText('SORTER', W / 2, 125);
+        ctx.fillText('SORTER', W / 2, 125);
+
+        ctx.fillStyle = 'rgba(200, 200, 255, 0.7)';
+        ctx.font = '14px "Segoe UI", sans-serif';
+        ctx.fillText('Sort the slabs into the correct grade bins!', W / 2, 155);
+
+        // Draw bins preview
+        drawBins();
+
+        // Instructions
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '16px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Press 1-6, A-H, or click bins to sort', W / 2, H - 110);
+        ctx.fillText('Click or press Space to start', W / 2, H - 88);
+
+        if (highScore > 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.font = '13px "Segoe UI", sans-serif';
+            ctx.fillText(`High Score: ${highScore}`, W / 2, H - 130);
+        }
+    }
+
+    function drawDeadScreen() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = 'bold 32px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER', W / 2, 200);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '22px "Segoe UI", sans-serif';
+        ctx.fillText(`Score: ${score}`, W / 2, 250);
+
+        ctx.fillStyle = '#aaa';
+        ctx.font = '15px "Segoe UI", sans-serif';
+        ctx.fillText(`Cards Sorted: ${cardsSorted}`, W / 2, 285);
+        ctx.fillText(`Best Streak: ${bestStreak}x`, W / 2, 308);
+        ctx.fillText(`Level Reached: ${level}`, W / 2, 331);
+
+        if (score >= highScore && score > 0) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.font = 'bold 16px "Segoe UI", sans-serif';
+            ctx.fillText('New High Score!', W / 2, 365);
+        }
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = '16px "Segoe UI", sans-serif';
+        ctx.fillText('Click or press Space to continue', W / 2, 410);
+    }
+
+    // ---- Update ----
+    function update() {
+        frameCount++;
+
+        // Decay shake and bin flash even when dead
+        if (shakeFrames > 0) shakeFrames--;
+        if (binFlash[1] > 0) binFlash[1]--;
+
+        if (gameState !== 'playing') return;
+
+        // Spawn cards — multiple at higher levels
+        spawnTimer++;
+        if (spawnTimer >= spawnInterval) {
+            spawnTimer = 0;
+            spawnCard();
+            // Level 3+: chance of double drop, Level 5+: chance of triple
+            if (level >= 3 && Math.random() < 0.4) {
+                spawnCard();
+            }
+            if (level >= 5 && Math.random() < 0.3) {
+                spawnCard();
+            }
+        }
+
+        // Move cards
+        for (let i = cards.length - 1; i >= 0; i--) {
+            cards[i].y += cards[i].speed;
+
+            // Card reached the bottom — missed!
+            if (cards[i].y > BIN_Y - 10) {
+                lives--;
+                streak = 0;
+                shakeFrames = 12;
+                feedbacks.push({
+                    x: cards[i].x + cards[i].width / 2,
+                    y: BIN_Y - 30,
+                    text: 'MISS!',
+                    subtext: '',
+                    color: '#e74c3c',
+                    life: 50,
+                });
+                cards.splice(i, 1);
+
+                if (lives <= 0) {
+                    gameOver();
+                    return;
+                }
+            }
+        }
+
+    }
+
+    function draw() {
+        ctx.save();
+
+        // Screen shake
+        if (shakeFrames > 0) {
+            const intensity = Math.min(shakeFrames, 12) * 0.8;
+            ctx.translate(
+                (Math.random() - 0.5) * intensity,
+                (Math.random() - 0.5) * intensity
+            );
+        }
+
+        if (gameState === 'start') {
+            drawStartScreen();
+        } else if (gameState === 'playing') {
+            drawBackground();
+
+            // Draw drop zone hint line
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([8, 4]);
+            ctx.beginPath();
+            ctx.moveTo(0, BIN_Y - 10);
+            ctx.lineTo(W, BIN_Y - 10);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            drawBins();
+
+            // Draw falling cards
+            for (const card of cards) {
+                drawSlab(card.x, card.y, card.width, card.height, card.gradeIdx, card.sportIdx, card.playerName);
+            }
+
+            drawFeedbacks();
+            drawHUD();
+        } else if (gameState === 'dead') {
+            drawBackground();
+            drawBins();
+            for (const card of cards) {
+                drawSlab(card.x, card.y, card.width, card.height, card.gradeIdx, card.sportIdx, card.playerName);
+            }
+            drawFeedbacks();
+            drawHUD();
+            drawDeadScreen();
+        }
+
+        ctx.restore();
+    }
+
+    // ---- 60fps game loop ----
+    const FRAME_DURATION = 1000 / 60;
+    let lastTime = 0;
+
+    function gameLoop(timestamp) {
+        if (lastTime === 0) lastTime = timestamp - FRAME_DURATION;
+        const delta = timestamp - lastTime;
+
+        if (delta >= FRAME_DURATION) {
+            lastTime = timestamp - (delta % FRAME_DURATION);
+            update();
+        }
+
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // ---- Init ----
+    document.getElementById('lb-player-name').textContent = playerName || '\u2014';
+    if (!playerName) {
+        promptName();
+    }
+    loadLeaderboard();
+    requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
