@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            font-family: 'Lato', sans-serif;
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        header {
+            text-align: center;
+            padding: 48px 20px 24px;
+        }
+        header h1 {
+            font-size: 42px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: #ffaa00;
+            text-transform: uppercase;
+        }
+        header p {
+            color: #777;
+            font-size: 14px;
+            margin-top: 6px;
+            letter-spacing: 1px;
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+            max-width: 960px;
+            margin: 32px auto;
+            padding: 0 24px;
+        }
+
+        .game-card {
+            background: #1e1e3a;
+            border: 2px solid #333360;
+            border-radius: 4px;
+            overflow: hidden;
+            text-decoration: none;
+            color: #fff;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .game-card:hover {
+            border-color: #ffaa00;
+            transform: translateY(-3px);
+        }
+
+        .card-thumbnail {
+            width: 100%;
+            height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-body {
+            padding: 16px;
+        }
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .card-desc {
+            font-size: 13px;
+            color: #888;
+            line-height: 1.4;
+        }
+        .card-tags {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .tag {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        /* Moltres card theme */
+        .moltres-bg {
+            background: linear-gradient(135deg, #1a0a00 0%, #2a1000 50%, #0f0c29 100%);
+        }
+        .moltres-flame {
+            font-size: 72px;
+            filter: drop-shadow(0 0 20px rgba(255, 100, 0, 0.5));
+        }
+        .tag-fire { background: #e74c3c; color: #fff; }
+        .tag-flying { background: #5b9bd5; color: #fff; }
+
+        /* Coming soon card */
+        .game-card.coming-soon {
+            opacity: 0.4;
+            pointer-events: none;
+            border-style: dashed;
+        }
+        .coming-soon-bg {
+            background: #151530;
+        }
+        .coming-soon-icon {
+            font-size: 48px;
+            color: #333;
+        }
+
+        footer {
+            text-align: center;
+            padding: 48px 20px 32px;
+            color: #444;
+            font-size: 12px;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Arcade</h1>
+        <p>A collection of browser games</p>
+    </header>
+
+    <div class="games-grid">
+        <!-- Flappy Moltres -->
+        <a href="moltres-flappy/" class="game-card">
+            <div class="card-thumbnail moltres-bg">
+                <canvas id="moltres-preview" width="280" height="180"></canvas>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Flappy Moltres</div>
+                <div class="card-desc">Dodge the water cannons as the legendary fire bird. How far can you fly?</div>
+                <div class="card-tags">
+                    <span class="tag tag-fire">Fire</span>
+                    <span class="tag tag-flying">Flying</span>
+                </div>
+            </div>
+        </a>
+
+        <!-- Coming Soon placeholder -->
+        <div class="game-card coming-soon">
+            <div class="card-thumbnail coming-soon-bg">
+                <span class="coming-soon-icon">?</span>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Coming Soon</div>
+                <div class="card-desc">More games on the way...</div>
+            </div>
+        </div>
+    </div>
+
+    <footer>ARCADE &mdash; Built with vibes</footer>
+
+    <script>
+    // Draw a mini animated Moltres on the card thumbnail
+    const pc = document.getElementById('moltres-preview');
+    const px = pc.getContext('2d');
+    let frame = 0;
+
+    function drawPreview() {
+        frame++;
+        px.clearRect(0, 0, 280, 180);
+
+        // Starry bg
+        px.fillStyle = 'rgba(255,255,255,0.15)';
+        for (let i = 0; i < 20; i++) {
+            const sx = (i * 47 + frame * 0.2) % 280;
+            const sy = (i * 31) % 180;
+            px.fillRect(sx, sy, 1.5, 1.5);
+        }
+
+        // Mini Moltres silhouette
+        const cx = 140, cy = 90 + Math.sin(frame * 0.04) * 8;
+        const flap = Math.sin(frame * 0.12) * 0.3;
+
+        px.save();
+        px.translate(cx, cy);
+
+        // Tail flame
+        const tf = Math.sin(frame * 0.2) * 4;
+        px.fillStyle = '#ff4400';
+        px.beginPath();
+        px.moveTo(-10, 4);
+        px.bezierCurveTo(-30, 0 + tf, -45, -6, -55, -10 + tf);
+        px.bezierCurveTo(-40, 4, -25, 12, -10, 8);
+        px.fill();
+        px.fillStyle = '#ffaa00';
+        px.beginPath();
+        px.moveTo(-8, 5);
+        px.bezierCurveTo(-22, 2, -35, 0 + tf * 0.5, -42, -3);
+        px.bezierCurveTo(-30, 5, -18, 9, -8, 7);
+        px.fill();
+
+        // Body
+        px.fillStyle = '#f0c040';
+        px.beginPath();
+        px.ellipse(0, 4, 14, 12, 0, 0, Math.PI * 2);
+        px.fill();
+
+        // Wing
+        px.save();
+        px.rotate(flap);
+        px.fillStyle = '#ff5500';
+        px.beginPath();
+        px.moveTo(-6, -6);
+        px.bezierCurveTo(-14, -24, -4, -38, 4, -44);
+        px.bezierCurveTo(10, -36, 12, -18, 8, -6);
+        px.fill();
+        px.fillStyle = '#f0c040';
+        px.beginPath();
+        px.moveTo(-4, -6);
+        px.bezierCurveTo(-8, -18, -2, -28, 4, -32);
+        px.bezierCurveTo(8, -24, 8, -12, 4, -6);
+        px.fill();
+        px.restore();
+
+        // Neck + head
+        px.fillStyle = '#f0c040';
+        px.beginPath();
+        px.moveTo(8, -2);
+        px.bezierCurveTo(14, -12, 20, -20, 22, -26);
+        px.bezierCurveTo(24, -24, 22, -14, 16, -4);
+        px.fill();
+        px.beginPath();
+        px.ellipse(22, -28, 8, 7, 0, 0, Math.PI * 2);
+        px.fill();
+
+        // Head crest
+        const cf = Math.sin(frame * 0.25) * 3;
+        px.fillStyle = '#ff4400';
+        px.beginPath();
+        px.moveTo(18, -33);
+        px.bezierCurveTo(14, -42, 16, -50 + cf, 22, -52);
+        px.bezierCurveTo(26, -48, 28, -42, 26, -36);
+        px.fill();
+
+        // Eye
+        px.fillStyle = '#222';
+        px.beginPath();
+        px.arc(25, -29, 2.5, 0, Math.PI * 2);
+        px.fill();
+
+        // Beak
+        px.fillStyle = '#8B6914';
+        px.beginPath();
+        px.moveTo(28, -28);
+        px.lineTo(36, -27);
+        px.lineTo(28, -25);
+        px.fill();
+
+        px.restore();
+
+        requestAnimationFrame(drawPreview);
+    }
+    drawPreview();
+    </script>
+</body>
+</html>
