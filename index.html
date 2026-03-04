@@ -117,6 +117,13 @@
         .tag-endless { background: #8B6914; color: #fff; }
         .tag-runner { background: #CC5500; color: #fff; }
 
+        /* Coin Stack card theme */
+        .coinstack-bg {
+            background: linear-gradient(135deg, #2a1a00 0%, #1a1200 50%, #0f0c29 100%);
+        }
+        .tag-coins { background: #FFD700; color: #333; }
+        .tag-stacking { background: #B87333; color: #fff; }
+
         /* Coming soon card */
         .game-card.coming-soon {
             opacity: 0.4;
@@ -188,6 +195,21 @@
                 <div class="card-tags">
                     <span class="tag tag-endless">Endless</span>
                     <span class="tag tag-runner">Runner</span>
+                </div>
+            </div>
+        </a>
+
+        <!-- Coin Stack -->
+        <a href="coin-stack/" class="game-card">
+            <div class="card-thumbnail coinstack-bg">
+                <canvas id="coinstack-preview" width="280" height="180"></canvas>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Coin Stack</div>
+                <div class="card-desc">Stack coins as high as you can! Perfect placement keeps the tower growing.</div>
+                <div class="card-tags">
+                    <span class="tag tag-coins">Coins</span>
+                    <span class="tag tag-stacking">Stacking</span>
                 </div>
             </div>
         </a>
@@ -476,6 +498,80 @@
         requestAnimationFrame(drawRunnerPreview);
     }
     drawRunnerPreview();
+
+    // Coin Stack preview — animated stacking coins
+    const cc = document.getElementById('coinstack-preview');
+    const cx = cc.getContext('2d');
+
+    const COIN_COLORS_PREVIEW = [
+        { color: '#B87333', rim: '#8B5A2B', face: '#D4956A' },
+        { color: '#A8A9AD', rim: '#808080', face: '#C0C0C0' },
+        { color: '#C0C0C0', rim: '#909090', face: '#D8D8D8' },
+        { color: '#D0D0D0', rim: '#A0A0A0', face: '#E0E0E0' },
+        { color: '#FFD700', rim: '#DAA520', face: '#FFEC8B' },
+    ];
+
+    function drawMiniCoin(ctx2, x, y, w, type) {
+        const h = 10, edge = 3;
+        ctx2.fillStyle = type.rim;
+        ctx2.beginPath();
+        ctx2.ellipse(x + w/2, y + h, w/2, edge, 0, 0, Math.PI);
+        ctx2.fill();
+        ctx2.fillRect(x, y + edge, w, h - edge);
+        ctx2.fillStyle = type.color;
+        ctx2.beginPath();
+        ctx2.ellipse(x + w/2, y + edge, w/2, edge, 0, 0, Math.PI * 2);
+        ctx2.fill();
+        ctx2.fillStyle = type.face;
+        ctx2.beginPath();
+        ctx2.ellipse(x + w/2, y + edge, w/2 - 3, edge - 1, 0, 0, Math.PI * 2);
+        ctx2.fill();
+    }
+
+    function drawCoinStackPreview() {
+        cx.clearRect(0, 0, 280, 180);
+
+        // Sparkle bg
+        cx.fillStyle = 'rgba(255, 200, 100, 0.12)';
+        for (let i = 0; i < 15; i++) {
+            const sx2 = (i * 43 + frame * 0.2) % 280;
+            const sy2 = (i * 31) % 180;
+            cx.fillRect(sx2, sy2, 1.5, 1.5);
+        }
+
+        // Static stack of coins
+        const baseW = 100;
+        const baseY = 155;
+        const coinH = 10;
+        const stackCount = 7;
+        for (let i = 0; i < stackCount; i++) {
+            const w = baseW - i * 6;
+            const x2 = (280 - w) / 2;
+            const y2 = baseY - i * coinH;
+            const typeIdx = Math.min(Math.floor(i / 2), 4);
+            drawMiniCoin(cx, x2, y2, w, COIN_COLORS_PREVIEW[typeIdx]);
+        }
+
+        // Moving coin at top
+        const topW = baseW - stackCount * 6;
+        const moveX = 140 + Math.sin(frame * 0.05) * 70 - topW / 2;
+        const moveY = baseY - stackCount * coinH - 30;
+        const typeIdx = Math.min(Math.floor(stackCount / 2), 4);
+        drawMiniCoin(cx, moveX, moveY, topW, COIN_COLORS_PREVIEW[typeIdx]);
+
+        // Drop line (ghost)
+        cx.setLineDash([3, 3]);
+        cx.strokeStyle = 'rgba(255, 200, 100, 0.2)';
+        cx.lineWidth = 1;
+        cx.beginPath();
+        cx.moveTo(moveX + topW / 2, moveY + coinH);
+        cx.lineTo(moveX + topW / 2, baseY - stackCount * coinH);
+        cx.stroke();
+        cx.setLineDash([]);
+
+        requestAnimationFrame(drawCoinStackPreview);
+    }
+    drawCoinStackPreview();
     </script>
 </body>
 </html>
