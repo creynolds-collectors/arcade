@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coin Stack</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            gap: 16px;
+            padding: 20px;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        #game-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        canvas {
+            border: 3px solid #B87333;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Back button */
+        #back-btn {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            background: rgba(30, 30, 58, 0.9);
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #aaa;
+            font-size: 13px;
+            padding: 6px 12px;
+            cursor: pointer;
+            text-decoration: none;
+            z-index: 100;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        #back-btn:hover { color: #ffaa00; border-color: #ffaa00; }
+
+        /* Leaderboard panel (right side) */
+        #leaderboard-panel {
+            width: 220px;
+            background: #1e1e3a;
+            border: 2px solid #B87333;
+            border-radius: 4px;
+            padding: 14px 10px;
+            flex-shrink: 0;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .lb-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: #ffaa00;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #333360;
+            padding-bottom: 8px;
+        }
+        .lb-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 6px;
+            border-radius: 4px;
+            margin-bottom: 3px;
+            background: #252545;
+        }
+        .lb-row.lb-me {
+            background: #3d2000;
+            border: 1px solid #ff6600;
+        }
+        .lb-rank {
+            width: 24px;
+            text-align: right;
+            color: #666;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+        .lb-row:nth-child(1) .lb-rank { color: #ffd700; font-weight: bold; }
+        .lb-row:nth-child(2) .lb-rank { color: #c0c0c0; font-weight: bold; }
+        .lb-row:nth-child(3) .lb-rank { color: #cd7f32; font-weight: bold; }
+        .lb-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #ccc;
+            font-size: 12px;
+        }
+        .lb-row.lb-me .lb-name { color: #ffaa44; }
+        .lb-score {
+            font-weight: bold;
+            font-size: 12px;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .lb-status {
+            text-align: center;
+            font-size: 11px;
+            color: #555;
+            margin-top: 8px;
+            min-height: 16px;
+        }
+        .lb-footer {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #333360;
+            font-size: 11px;
+            color: #777;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        #lb-player-name {
+            color: #ffaa44;
+            font-weight: bold;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #lb-change-name {
+            background: none;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #888;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 5px;
+        }
+        #lb-change-name:hover { color: #ffaa44; border-color: #ffaa44; }
+
+        /* Name modal */
+        .nm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        .nm-overlay.hidden { display: none; }
+        .nm-box {
+            background: #1e1e3a;
+            border: 2px solid #B87333;
+            border-radius: 4px;
+            padding: 28px 24px;
+            width: 300px;
+            text-align: center;
+        }
+        .nm-title {
+            color: #ffaa00;
+            font-weight: bold;
+            font-size: 16px;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+        }
+        .nm-subtitle { color: #777; font-size: 12px; margin-bottom: 18px; }
+        .nm-input {
+            width: 100%;
+            background: #252545;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 16px;
+            padding: 10px 12px;
+            margin-bottom: 16px;
+            text-align: center;
+            outline: none;
+        }
+        .nm-input:focus { border-color: #ffaa00; }
+        .nm-buttons { display: flex; gap: 8px; justify-content: center; }
+        .nm-btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .nm-btn-confirm { background: #B87333; color: #fff; }
+        .nm-btn-skip { background: #333; color: #888; }
+
+        @media (max-width: 700px) {
+            body { flex-direction: column; }
+            #leaderboard-panel { width: 100%; max-width: 400px; max-height: 200px; }
+        }
+    </style>
+</head>
+<body>
+    <a href="../" id="back-btn">&#8592; Home</a>
+
+    <div id="game-wrapper">
+        <canvas id="game" width="400" height="600"></canvas>
+    </div>
+
+    <div id="leaderboard-panel">
+        <div class="lb-title">Top Stackers</div>
+        <div id="lb-list">
+            <div style="color:#555; font-size:12px; text-align:center; padding:20px 0;">Loading...</div>
+        </div>
+        <div id="lb-status" class="lb-status"></div>
+        <div class="lb-footer">
+            Playing as: <span id="lb-player-name">&mdash;</span>
+            <button id="lb-change-name" onclick="promptName()">&#x270E;</button>
+        </div>
+    </div>
+
+    <!-- Name Modal -->
+    <div id="name-modal" class="nm-overlay hidden">
+        <div class="nm-box">
+            <div class="nm-title">ENTER YOUR NAME</div>
+            <div class="nm-subtitle">Your name will appear on the leaderboard</div>
+            <input id="nm-input" type="text" class="nm-input" maxlength="20" placeholder="Coin collector name...">
+            <div class="nm-buttons">
+                <button class="nm-btn nm-btn-skip" id="nm-skip-btn" onclick="skipName()">Skip</button>
+                <button class="nm-btn nm-btn-confirm" onclick="confirmName()">Let's Go!</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ---- Supabase ----
+    const SUPABASE_URL = 'https://tvuohothipklgwzcvmva.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2dW9ob3RoaXBrbGd3emN2bXZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MjAyNzEsImV4cCI6MjA4NjQ5NjI3MX0.ZWJPGd3Yt-Opv3Oaut3xvUZNhGrQ3P8FrQuhN-wCb6I';
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ---- Player name ----
+    let playerName = localStorage.getItem('coinStackPlayerName') || '';
+    let pendingScore = 0;
+
+    function promptName() {
+        const modal = document.getElementById('name-modal');
+        const input = document.getElementById('nm-input');
+        input.value = playerName;
+        document.getElementById('nm-skip-btn').style.display = playerName ? 'block' : 'none';
+        modal.classList.remove('hidden');
+        setTimeout(() => input.focus(), 50);
+    }
+
+    function confirmName() {
+        const val = document.getElementById('nm-input').value.trim();
+        if (!val) return;
+        playerName = val.slice(0, 20);
+        localStorage.setItem('coinStackPlayerName', playerName);
+        document.getElementById('name-modal').classList.add('hidden');
+        document.getElementById('lb-player-name').textContent = playerName;
+        if (pendingScore > 0) {
+            submitScore(playerName, pendingScore);
+            pendingScore = 0;
+        }
+        loadLeaderboard();
+    }
+
+    function skipName() {
+        document.getElementById('name-modal').classList.add('hidden');
+    }
+
+    document.getElementById('nm-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmName();
+    });
+
+    // ---- Leaderboard ----
+    async function submitScore(name, finalScore) {
+        setLbStatus('Submitting...');
+        const { error } = await db.from('coin_stack_scores').insert([{
+            player_name: name,
+            score: finalScore
+        }]);
+        if (error) { setLbStatus('Submit failed'); return; }
+        await loadLeaderboard();
+    }
+
+    async function loadLeaderboard() {
+        const { data, error } = await db
+            .from('coin_stack_scores')
+            .select('player_name, score')
+            .order('score', { ascending: false })
+            .limit(10);
+        if (error) { setLbStatus('Could not load'); return; }
+        renderLeaderboard(data || []);
+    }
+
+    function renderLeaderboard(rows) {
+        const list = document.getElementById('lb-list');
+        if (rows.length === 0) {
+            list.innerHTML = '<div style="color:#555; font-size:12px; text-align:center; padding:20px 0;">No scores yet!<br>Be the first.</div>';
+            return;
+        }
+        const rankLabels = ['1st', '2nd', '3rd'];
+        list.innerHTML = rows.map((row, i) => {
+            const isMe = playerName && row.player_name.toLowerCase() === playerName.toLowerCase();
+            const rank = i < 3 ? rankLabels[i] : `${i + 1}th`;
+            return `<div class="lb-row${isMe ? ' lb-me' : ''}">
+                <span class="lb-rank">${rank}</span>
+                <span class="lb-name" title="${escapeHtml(row.player_name)}">${escapeHtml(row.player_name)}</span>
+                <span class="lb-score">${row.score}</span>
+            </div>`;
+        }).join('');
+        setLbStatus('');
+    }
+
+    function setLbStatus(msg) { document.getElementById('lb-status').textContent = msg; }
+    function escapeHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ---- Canvas ----
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const W = 400, H = 600;
+
+    function resizeCanvas() {
+        const panelW = window.innerWidth > 700 ? 260 : 0;
+        const pad = 40;
+        const maxW = window.innerWidth - pad - panelW;
+        const maxH = window.innerHeight - pad;
+        const scale = Math.min(maxW / W, maxH / H, 1.2);
+        canvas.style.width = Math.floor(W * scale) + 'px';
+        canvas.style.height = Math.floor(H * scale) + 'px';
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // ---- Coin Types ----
+    const COIN_TYPES = [
+        { name: 'Penny',       color: '#B87333', rim: '#8B5A2B', face: '#D4956A', text: '#6B3A1E' },
+        { name: 'Nickel',      color: '#A8A9AD', rim: '#808080', face: '#C0C0C0', text: '#555' },
+        { name: 'Quarter',     color: '#C0C0C0', rim: '#909090', face: '#D8D8D8', text: '#666' },
+        { name: 'Half Dollar', color: '#D0D0D0', rim: '#A0A0A0', face: '#E0E0E0', text: '#777' },
+        { name: 'Gold Dollar', color: '#FFD700', rim: '#DAA520', face: '#FFEC8B', text: '#8B7500' },
+    ];
+
+    function getCoinType(level) {
+        if (level <= 5)  return COIN_TYPES[0];
+        if (level <= 10) return COIN_TYPES[1];
+        if (level <= 15) return COIN_TYPES[2];
+        if (level <= 20) return COIN_TYPES[3];
+        return COIN_TYPES[4];
+    }
+
+    // ---- Game State ----
+    let gameState = 'start'; // start | playing | dead
+    let highScore = parseInt(localStorage.getItem('coinStackHighScore') || '0');
+    let score = 0;
+    let perfectStreak = 0;
+    let level = 1;
+
+    // Stack data: array of { x, width, y (top of coin) }
+    let stack = [];
+    const COIN_HEIGHT = 16;
+    const INITIAL_WIDTH = 200;
+    const PERFECT_THRESHOLD = 3;
+    const MIN_OVERLAP_RATIO = 0.15;
+
+    // Moving coin
+    let movingCoin = { x: 0, width: INITIAL_WIDTH, direction: 1, speed: 2 };
+
+    // Dropping coin animation
+    let droppingCoin = null; // { x, y, width, targetY }
+
+    // Cut-off pieces (falling debris)
+    let cutPieces = []; // { x, y, width, vy, vx, rotation, rotSpeed }
+
+    // Camera
+    let cameraY = 0;
+    let targetCameraY = 0;
+
+    // Perfect text animation
+    let perfectAnim = null; // { text, x, y, alpha, vy }
+
+    // Collapse animation
+    let collapseCoins = []; // { x, y, width, vy, vx, rotation, rotSpeed, type }
+    let collapseTimer = 0;
+
+    // Shake
+    let shakeFrames = 0;
+
+    // Background particles (floating dust/sparkles)
+    let bgParticles = [];
+    for (let i = 0; i < 30; i++) {
+        bgParticles.push({
+            x: Math.random() * W,
+            y: Math.random() * H * 3,
+            size: Math.random() * 2 + 0.5,
+            speed: Math.random() * 0.3 + 0.1,
+            alpha: Math.random() * 0.3 + 0.1
+        });
+    }
+
+    // ---- Init ----
+    function resetGame() {
+        score = 0;
+        perfectStreak = 0;
+        level = 1;
+        stack = [];
+        cutPieces = [];
+        droppingCoin = null;
+        perfectAnim = null;
+        collapseCoins = [];
+        collapseTimer = 0;
+        shakeFrames = 0;
+        cameraY = 0;
+        targetCameraY = 0;
+
+        // Base platform
+        const baseX = (W - INITIAL_WIDTH) / 2;
+        const baseY = H - 80;
+        stack.push({ x: baseX, width: INITIAL_WIDTH, y: baseY });
+
+        // Init moving coin
+        movingCoin = {
+            x: baseX,
+            width: INITIAL_WIDTH,
+            direction: 1,
+            speed: 2
+        };
+    }
+
+    function getStackTop() {
+        return stack[stack.length - 1];
+    }
+
+    function getSwingSpeed() {
+        return 2 + Math.floor((level - 1) / 5) * 0.5 + level * 0.08;
+    }
+
+    function getMovingCoinY() {
+        const top = getStackTop();
+        return top.y - COIN_HEIGHT - 40 - Math.min(level * 2, 60);
+    }
+
+    // ---- Drawing ----
+    function drawCoin(x, y, width, coinType, isGhost) {
+        if (width < 2) return; // too small to draw
+        const h = COIN_HEIGHT;
+        const edgeH = 4;
+        const rx = Math.max(width / 2, 1);
+
+        ctx.save();
+        if (isGhost) ctx.globalAlpha = 0.25;
+
+        // Edge/rim (3D depth)
+        ctx.fillStyle = coinType.rim;
+        ctx.beginPath();
+        ctx.ellipse(x + width / 2, y + h, rx, edgeH, 0, 0, Math.PI);
+        ctx.fill();
+        ctx.fillRect(x, y + edgeH, width, h - edgeH);
+
+        // Top face
+        ctx.fillStyle = coinType.color;
+        ctx.beginPath();
+        ctx.ellipse(x + width / 2, y + edgeH, rx, edgeH, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner face detail (only if wide enough)
+        if (width > 10) {
+            ctx.fillStyle = coinType.face;
+            ctx.beginPath();
+            ctx.ellipse(x + width / 2, y + edgeH, rx - 4, Math.max(edgeH - 1.5, 1), 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rim ring
+            ctx.strokeStyle = coinType.rim;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.ellipse(x + width / 2, y + edgeH, rx - 2, Math.max(edgeH - 0.8, 1), 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Profile silhouette (if coin wide enough)
+        if (width > 40) {
+            ctx.fillStyle = coinType.text;
+            ctx.globalAlpha = isGhost ? 0.1 : 0.3;
+            const cx2 = x + width / 2;
+            const cy = y + edgeH;
+
+            ctx.beginPath();
+            ctx.arc(cx2, cy - 0.5, Math.min(width / 8, 5), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(cx2 - 3, cy + 1);
+            ctx.lineTo(cx2 + 3, cy + 1);
+            ctx.lineTo(cx2 + 2, cy + 3);
+            ctx.lineTo(cx2 - 2, cy + 3);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    function drawBackground() {
+        // Gradient background that shifts with height
+        const heightRatio = Math.min(cameraY / 2000, 1);
+        const r = Math.floor(26 + heightRatio * 10);
+        const g = Math.floor(26 + heightRatio * 15);
+        const b = Math.floor(46 + heightRatio * 30);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(0, 0, W, H);
+
+        // Floating particles
+        for (const p of bgParticles) {
+            const py = ((p.y - cameraY * 0.3) % (H * 2) + H * 2) % (H * 2) - H * 0.5;
+            ctx.fillStyle = `rgba(255, 200, 100, ${p.alpha})`;
+            ctx.fillRect(p.x, py, p.size, p.size);
+        }
+    }
+
+    function drawStack() {
+        for (let i = 0; i < stack.length; i++) {
+            const s = stack[i];
+            const coinType = getCoinType(Math.min(i + 1, 99));
+            const screenY = s.y - cameraY;
+
+            // Only draw if visible
+            if (screenY > -COIN_HEIGHT - 10 && screenY < H + 10) {
+                drawCoin(s.x, screenY, s.width, coinType, false);
+            }
+        }
+    }
+
+    function drawMovingCoin() {
+        if (droppingCoin) return; // don't draw if dropping
+        const coinType = getCoinType(level);
+        const y = getMovingCoinY() - cameraY;
+        drawCoin(movingCoin.x, y, movingCoin.width, coinType, false);
+
+        // Ghost/shadow on stack
+        const top = getStackTop();
+        drawCoin(movingCoin.x, top.y - COIN_HEIGHT - cameraY, movingCoin.width, coinType, true);
+    }
+
+    function drawDroppingCoin() {
+        if (!droppingCoin) return;
+        const coinType = getCoinType(level);
+        drawCoin(droppingCoin.x, droppingCoin.y - cameraY, droppingCoin.width, coinType, false);
+    }
+
+    function drawCutPieces() {
+        for (const p of cutPieces) {
+            ctx.save();
+            const sx = p.x + p.width / 2;
+            const sy = p.y - cameraY + COIN_HEIGHT / 2;
+            ctx.translate(sx, sy);
+            ctx.rotate(p.rotation);
+            const coinType = getCoinType(p.level || level);
+            drawCoin(-p.width / 2, -COIN_HEIGHT / 2, p.width, coinType, false);
+            ctx.restore();
+        }
+    }
+
+    function drawPerfectAnim() {
+        if (!perfectAnim) return;
+        ctx.save();
+        ctx.globalAlpha = perfectAnim.alpha;
+        ctx.fillStyle = '#FFD700';
+        ctx.font = `bold ${16 + perfectStreak * 2}px "Segoe UI", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(perfectAnim.text, perfectAnim.x, perfectAnim.y - cameraY);
+        ctx.restore();
+    }
+
+    function drawCollapseCoins() {
+        for (const c of collapseCoins) {
+            ctx.save();
+            const sx = c.x + c.width / 2;
+            const sy = c.y - cameraY + COIN_HEIGHT / 2;
+            ctx.translate(sx, sy);
+            ctx.rotate(c.rotation);
+            drawCoin(-c.width / 2, -COIN_HEIGHT / 2, c.width, c.type, false);
+            ctx.restore();
+        }
+    }
+
+    function drawHUD() {
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(0, 0, W, 50);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 18px "Segoe UI", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Score: ${score}`, 14, 32);
+
+        const coinType = getCoinType(level);
+        ctx.fillStyle = coinType.color;
+        ctx.font = 'bold 12px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(coinType.name, W / 2, 22);
+        ctx.fillStyle = '#888';
+        ctx.font = '11px "Segoe UI", sans-serif';
+        ctx.fillText(`Level ${level}`, W / 2, 38);
+
+        ctx.fillStyle = '#aaa';
+        ctx.font = '13px "Segoe UI", sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`Best: ${highScore}`, W - 14, 32);
+
+        // Streak indicator
+        if (perfectStreak >= 2) {
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 13px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${perfectStreak}x Perfect!`, W / 2, 48);
+        }
+    }
+
+    function drawStartScreen() {
+        drawBackground();
+
+        // Demo stack
+        const demoW = 160;
+        const baseY = H - 120;
+        for (let i = 0; i < 8; i++) {
+            const w = demoW - i * 6;
+            const x = (W - w) / 2;
+            const y = baseY - i * COIN_HEIGHT;
+            const coinType = getCoinType(i + 1);
+            const pulse = Math.sin(frameCount * 0.03 + i * 0.5) * 2;
+            drawCoin(x + pulse, y, w, coinType, false);
+        }
+
+        // Moving demo coin
+        const demoCoinX = W / 2 + Math.sin(frameCount * 0.04) * 80 - demoW / 2 + 24;
+        const demoTopY = baseY - 8 * COIN_HEIGHT - 50;
+        drawCoin(demoCoinX, demoTopY, demoW - 48, getCoinType(9), false);
+
+        // Title
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 48px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('COIN STACK', W / 2, 100);
+
+        ctx.fillStyle = '#B87333';
+        ctx.font = 'bold 14px "Segoe UI", sans-serif';
+        ctx.fillText('Stack coins as high as you can!', W / 2, 135);
+
+        ctx.fillStyle = '#888';
+        ctx.font = '13px "Segoe UI", sans-serif';
+        ctx.fillText('Tap / Click / Space to drop', W / 2, 170);
+
+        ctx.fillStyle = 'rgba(255, 200, 100, 0.4)';
+        ctx.font = '12px "Segoe UI", sans-serif';
+        ctx.fillText('Pennies \u2192 Nickels \u2192 Quarters \u2192 Half Dollars \u2192 Gold Dollars', W / 2, 200);
+
+        if (highScore > 0) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.font = 'bold 14px "Segoe UI", sans-serif';
+            ctx.fillText(`High Score: ${highScore}`, W / 2, 240);
+        }
+
+        // Pulsing prompt
+        const pulse = 0.5 + Math.sin(frameCount * 0.06) * 0.3;
+        ctx.globalAlpha = pulse;
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px "Segoe UI", sans-serif';
+        ctx.fillText('TAP TO START', W / 2, H - 40);
+        ctx.globalAlpha = 1;
+    }
+
+    function drawDeadScreen() {
+        drawBackground();
+        drawCollapseCoins();
+        drawCutPieces();
+
+        // Darken overlay (fade in)
+        const fadeAlpha = Math.min(collapseTimer / 60, 0.7);
+        ctx.fillStyle = `rgba(0,0,0,${fadeAlpha})`;
+        ctx.fillRect(0, 0, W, H);
+
+        if (collapseTimer > 40) {
+            const textAlpha = Math.min((collapseTimer - 40) / 30, 1);
+            ctx.save();
+            ctx.globalAlpha = textAlpha;
+
+            ctx.fillStyle = '#E74C3C';
+            ctx.font = 'bold 42px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('TOPPLED!', W / 2, 180);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 24px "Segoe UI", sans-serif';
+            ctx.fillText(`Score: ${score}`, W / 2, 240);
+
+            ctx.fillStyle = '#B87333';
+            ctx.font = '16px "Segoe UI", sans-serif';
+            ctx.fillText(`${level - 1} coins stacked`, W / 2, 275);
+
+            const coinType = getCoinType(level);
+            ctx.fillStyle = coinType.color;
+            ctx.fillText(`Reached: ${coinType.name}`, W / 2, 305);
+
+            if (score >= highScore && score > 0) {
+                ctx.fillStyle = '#FFD700';
+                ctx.font = 'bold 16px "Segoe UI", sans-serif';
+                ctx.fillText('NEW HIGH SCORE!', W / 2, 345);
+            }
+
+            ctx.fillStyle = '#888';
+            ctx.font = '14px "Segoe UI", sans-serif';
+            ctx.fillText('Tap to retry', W / 2, 400);
+
+            ctx.restore();
+        }
+    }
+
+    // ---- Update ----
+    let frameCount = 0;
+
+    function update() {
+        frameCount++;
+
+        // Animate background particles
+        for (const p of bgParticles) {
+            p.y -= p.speed;
+        }
+
+        // Decay shake
+        if (shakeFrames > 0) shakeFrames--;
+
+        // Decay perfect anim
+        if (perfectAnim) {
+            perfectAnim.y -= perfectAnim.vy;
+            perfectAnim.alpha -= 0.015;
+            if (perfectAnim.alpha <= 0) perfectAnim = null;
+        }
+
+        // Animate cut pieces
+        for (let i = cutPieces.length - 1; i >= 0; i--) {
+            const p = cutPieces[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.3;
+            p.rotation += p.rotSpeed;
+            if (p.y - cameraY > H + 100) cutPieces.splice(i, 1);
+        }
+
+        if (gameState === 'dead') {
+            collapseTimer++;
+            // Animate collapse coins
+            for (const c of collapseCoins) {
+                c.x += c.vx;
+                c.y += c.vy;
+                c.vy += 0.4;
+                c.rotation += c.rotSpeed;
+            }
+            return;
+        }
+
+        if (gameState !== 'playing') return;
+
+        // Move coin back and forth
+        if (!droppingCoin) {
+            movingCoin.speed = getSwingSpeed();
+            movingCoin.x += movingCoin.direction * movingCoin.speed;
+
+            // Bounce off walls
+            if (movingCoin.x + movingCoin.width > W) {
+                movingCoin.x = W - movingCoin.width;
+                movingCoin.direction = -1;
+            }
+            if (movingCoin.x < 0) {
+                movingCoin.x = 0;
+                movingCoin.direction = 1;
+            }
+        }
+
+        // Dropping animation
+        if (droppingCoin) {
+            droppingCoin.y += droppingCoin.vy;
+            droppingCoin.vy += 0.8;
+
+            if (droppingCoin.y >= droppingCoin.targetY) {
+                droppingCoin.y = droppingCoin.targetY;
+                placeCoin();
+            }
+        }
+
+        // Smooth camera
+        cameraY += (targetCameraY - cameraY) * 0.08;
+    }
+
+    function dropCoin() {
+        if (droppingCoin) return;
+        const top = getStackTop();
+        const targetY = top.y - COIN_HEIGHT;
+
+        droppingCoin = {
+            x: movingCoin.x,
+            y: getMovingCoinY(),
+            width: movingCoin.width,
+            vy: 0,
+            targetY: targetY
+        };
+    }
+
+    function placeCoin() {
+        const top = getStackTop();
+        const coin = droppingCoin;
+        droppingCoin = null;
+
+        // Calculate overlap
+        const coinLeft = coin.x;
+        const coinRight = coin.x + coin.width;
+        const stackLeft = top.x;
+        const stackRight = top.x + top.width;
+
+        const overlapLeft = Math.max(coinLeft, stackLeft);
+        const overlapRight = Math.min(coinRight, stackRight);
+        const overlapWidth = overlapRight - overlapLeft;
+
+        // Check if missed (ratio too small OR absolute width too narrow)
+        if (overlapWidth < coin.width * MIN_OVERLAP_RATIO || overlapWidth < 8) {
+            gameOver();
+            return;
+        }
+
+        // Check for perfect placement
+        const coinCenter = coinLeft + coin.width / 2;
+        const stackCenter = stackLeft + top.width / 2;
+        const isPerfect = Math.abs(coinCenter - stackCenter) <= PERFECT_THRESHOLD;
+
+        let newWidth, newX;
+
+        if (isPerfect) {
+            // Perfect: keep same width as stack top (no trimming)
+            newWidth = top.width;
+            newX = top.x;
+            perfectStreak++;
+            score += 1 + 3 * perfectStreak;
+
+            perfectAnim = {
+                text: perfectStreak > 1 ? `PERFECT x${perfectStreak}!` : 'PERFECT!',
+                x: W / 2,
+                y: coin.targetY - 10,
+                alpha: 1,
+                vy: 0.5
+            };
+        } else {
+            // Trim overhang
+            newWidth = overlapWidth;
+            newX = overlapLeft;
+            perfectStreak = 0;
+            score += 1;
+
+            // Create falling cut piece(s)
+            if (coinLeft < stackLeft) {
+                // Left overhang
+                const cutW = stackLeft - coinLeft;
+                cutPieces.push({
+                    x: coinLeft, y: coin.targetY, width: cutW,
+                    vx: -2 - Math.random() * 2, vy: -1 - Math.random() * 2,
+                    rotation: 0, rotSpeed: -0.05 - Math.random() * 0.1,
+                    level: level
+                });
+            }
+            if (coinRight > stackRight) {
+                // Right overhang
+                const cutW = coinRight - stackRight;
+                cutPieces.push({
+                    x: stackRight, y: coin.targetY, width: cutW,
+                    vx: 2 + Math.random() * 2, vy: -1 - Math.random() * 2,
+                    rotation: 0, rotSpeed: 0.05 + Math.random() * 0.1,
+                    level: level
+                });
+            }
+
+            shakeFrames = 6;
+        }
+
+        // Add to stack
+        stack.push({
+            x: newX,
+            width: newWidth,
+            y: coin.targetY
+        });
+
+        level = stack.length;
+
+        // Update moving coin for next drop
+        movingCoin.width = newWidth;
+        // Alternate starting direction
+        movingCoin.direction = level % 2 === 0 ? 1 : -1;
+        movingCoin.x = movingCoin.direction === 1 ? 0 : W - movingCoin.width;
+
+        // Update camera target
+        const newTop = getStackTop();
+        const desiredScreenY = H * 0.55;
+        targetCameraY = Math.max(0, newTop.y - desiredScreenY);
+
+        // Update border color based on coin type
+        const coinType = getCoinType(level);
+        canvas.style.borderColor = coinType.color;
+    }
+
+    function gameOver() {
+        gameState = 'dead';
+        collapseTimer = 0;
+
+        const coin = droppingCoin;
+        droppingCoin = null;
+
+        // Add the missed coin as a falling piece
+        if (coin) {
+            cutPieces.push({
+                x: coin.x, y: coin.targetY, width: coin.width,
+                vx: coin.x < W / 2 ? -3 : 3, vy: -4,
+                rotation: 0, rotSpeed: (coin.x < W / 2 ? -1 : 1) * 0.1,
+                level: level
+            });
+        }
+
+        // Collapse the stack — coins tumble outward
+        for (let i = stack.length - 1; i >= 1; i--) {
+            const s = stack[i];
+            const delay = (stack.length - 1 - i) * 0.3;
+            const dir = (i % 2 === 0) ? -1 : 1;
+            collapseCoins.push({
+                x: s.x, y: s.y,
+                width: s.width,
+                vx: dir * (1 + Math.random() * 3),
+                vy: -2 - Math.random() * 4 - delay,
+                rotation: 0,
+                rotSpeed: dir * (0.02 + Math.random() * 0.08),
+                type: getCoinType(Math.min(i + 1, 99))
+            });
+        }
+
+        shakeFrames = 30;
+
+        const finalScore = score;
+        if (finalScore > highScore) {
+            highScore = finalScore;
+            localStorage.setItem('coinStackHighScore', highScore.toString());
+        }
+
+        if (finalScore > 0) {
+            if (playerName) {
+                submitScore(playerName, finalScore);
+            } else {
+                pendingScore = finalScore;
+                promptName();
+            }
+        }
+    }
+
+    // ---- Main Loop ----
+    const FRAME_DURATION = 1000 / 60;
+    let lastTime = 0;
+
+    function gameLoop(timestamp) {
+        if (lastTime === 0) lastTime = timestamp - FRAME_DURATION;
+        const delta = timestamp - lastTime;
+        if (delta >= FRAME_DURATION) {
+            lastTime = timestamp - (delta % FRAME_DURATION);
+            update();
+        }
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function draw() {
+        ctx.save();
+
+        // Apply shake
+        if (shakeFrames > 0) {
+            const intensity = Math.min(shakeFrames, 8) * 0.7;
+            ctx.translate(
+                (Math.random() - 0.5) * intensity,
+                (Math.random() - 0.5) * intensity
+            );
+        }
+
+        if (gameState === 'start') {
+            drawStartScreen();
+            ctx.restore();
+            return;
+        }
+
+        if (gameState === 'dead') {
+            drawDeadScreen();
+            ctx.restore();
+            return;
+        }
+
+        drawBackground();
+        drawStack();
+        drawMovingCoin();
+        drawDroppingCoin();
+        drawCutPieces();
+        drawPerfectAnim();
+        drawHUD();
+
+        ctx.restore();
+    }
+
+    // ---- Input ----
+    function handleAction() {
+        if (gameState === 'start') {
+            resetGame();
+            gameState = 'playing';
+            return;
+        }
+        if (gameState === 'playing') {
+            dropCoin();
+            return;
+        }
+        if (gameState === 'dead' && collapseTimer > 60) {
+            gameState = 'start';
+            return;
+        }
+    }
+
+    canvas.addEventListener('click', handleAction);
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.key === ' ') {
+            e.preventDefault();
+            // Don't trigger if name modal is open
+            if (!document.getElementById('name-modal').classList.contains('hidden')) return;
+            handleAction();
+        }
+    });
+
+    // ---- Init ----
+    document.getElementById('lb-player-name').textContent = playerName || '\u2014';
+    if (!playerName) promptName();
+    loadLeaderboard();
+    requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
