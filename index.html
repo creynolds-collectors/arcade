@@ -117,6 +117,13 @@
         .tag-endless { background: #8B6914; color: #fff; }
         .tag-runner { background: #CC5500; color: #fff; }
 
+        /* Gengar's World card theme */
+        .gengar-bg {
+            background: linear-gradient(135deg, #2a1a40 0%, #1a1040 50%, #6B8CFF 100%);
+        }
+        .tag-pokemon { background: #6B3FA0; color: #fff; }
+        .tag-platformer { background: #E74C3C; color: #fff; }
+
         /* Coin Stack card theme */
         .coinstack-bg {
             background: linear-gradient(135deg, #2a1a00 0%, #1a1200 50%, #0f0c29 100%);
@@ -210,6 +217,21 @@
                 <div class="card-tags">
                     <span class="tag tag-coins">Coins</span>
                     <span class="tag tag-stacking">Stacking</span>
+                </div>
+            </div>
+        </a>
+
+        <!-- Gengar's World -->
+        <a href="gengar-world/" class="game-card">
+            <div class="card-thumbnail gengar-bg">
+                <canvas id="gengar-preview" width="280" height="180"></canvas>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Gengar's World 1-1</div>
+                <div class="card-desc">Classic platformer action! Run, jump, and stomp through World 1-1 as Gengar.</div>
+                <div class="card-tags">
+                    <span class="tag tag-pokemon">Pokemon</span>
+                    <span class="tag tag-platformer">Platformer</span>
                 </div>
             </div>
         </a>
@@ -572,6 +594,114 @@
         requestAnimationFrame(drawCoinStackPreview);
     }
     drawCoinStackPreview();
+
+    // Gengar's World preview — Mario-style platformer scene
+    const gc = document.getElementById('gengar-preview');
+    const gx = gc.getContext('2d');
+    const gengarPreviewImg = new Image();
+    gengarPreviewImg.crossOrigin = 'anonymous';
+    gengarPreviewImg.src = 'https://img.pokemondb.net/sprites/black-white/anim/normal/gengar.gif';
+
+    function drawGengarPreview() {
+        gx.clearRect(0, 0, 280, 180);
+
+        // Sky
+        gx.fillStyle = '#6B8CFF';
+        gx.fillRect(0, 0, 280, 180);
+
+        // Cloud
+        gx.fillStyle = 'rgba(255,255,255,0.8)';
+        const clx = (180 + frame * 0.3) % 340 - 40;
+        gx.beginPath();
+        gx.arc(clx, 35, 12, 0, Math.PI * 2);
+        gx.arc(clx + 14, 33, 10, 0, Math.PI * 2);
+        gx.arc(clx - 10, 37, 9, 0, Math.PI * 2);
+        gx.fill();
+
+        // Hill
+        gx.fillStyle = '#4AA52E';
+        gx.beginPath();
+        gx.moveTo(20, 140);
+        gx.quadraticCurveTo(100, 90, 180, 140);
+        gx.fill();
+
+        // Ground
+        gx.fillStyle = '#C84C0C';
+        gx.fillRect(0, 140, 280, 40);
+        gx.fillStyle = '#E09848';
+        gx.fillRect(0, 142, 280, 2);
+
+        // Question block
+        const qPulse = Math.sin(frame * 0.08) * 8;
+        gx.fillStyle = `rgb(${220 + qPulse}, ${170 + qPulse}, 30)`;
+        gx.fillRect(155, 95, 22, 22);
+        gx.strokeStyle = '#805000';
+        gx.lineWidth = 1.5;
+        gx.strokeRect(155, 95, 22, 22);
+        gx.fillStyle = '#fff';
+        gx.font = 'bold 14px "Lato", sans-serif';
+        gx.textAlign = 'center';
+        gx.fillText('?', 166, 112);
+
+        // Brick blocks
+        gx.fillStyle = '#C84C0C';
+        gx.fillRect(130, 95, 22, 22);
+        gx.fillRect(180, 95, 22, 22);
+        gx.strokeStyle = '#804020';
+        gx.lineWidth = 0.5;
+        gx.beginPath();
+        gx.moveTo(130, 106); gx.lineTo(152, 106);
+        gx.moveTo(180, 106); gx.lineTo(202, 106);
+        gx.stroke();
+
+        // Pipe
+        gx.fillStyle = '#00A800';
+        gx.fillRect(220, 108, 28, 32);
+        gx.fillStyle = '#00C800';
+        gx.fillRect(217, 108, 34, 8);
+        gx.fillStyle = '#00E800';
+        gx.fillRect(222, 118, 4, 20);
+
+        // Gengar character (running + jumping)
+        const runX = 60 + Math.sin(frame * 0.02) * 30;
+        const jumpCyc = frame % 90;
+        const runY = jumpCyc < 25
+            ? 140 - 32 - Math.sin(jumpCyc / 25 * Math.PI) * 28
+            : 140 - 32;
+
+        if (gengarPreviewImg.complete) {
+            gx.drawImage(gengarPreviewImg, runX - 14, runY, 32, 32);
+        } else {
+            gx.fillStyle = '#6B3FA0';
+            gx.beginPath();
+            gx.arc(runX, runY + 14, 12, 0, Math.PI * 2);
+            gx.fill();
+            gx.fillStyle = '#fff';
+            gx.beginPath();
+            gx.arc(runX - 3, runY + 12, 2.5, 0, Math.PI * 2);
+            gx.arc(runX + 4, runY + 12, 2.5, 0, Math.PI * 2);
+            gx.fill();
+        }
+
+        // Enemy ghost
+        const eX = (220 - frame * 0.5) % 280;
+        const eBob = Math.sin(frame * 0.12) * 2;
+        gx.fillStyle = '#8855CC';
+        gx.beginPath();
+        gx.arc(eX, 125 + eBob, 10, Math.PI, 0);
+        gx.lineTo(eX + 10, 133 + eBob);
+        gx.quadraticCurveTo(eX + 5, 130, eX, 135 + eBob);
+        gx.quadraticCurveTo(eX - 5, 130, eX - 10, 133 + eBob);
+        gx.fill();
+        gx.fillStyle = '#fff';
+        gx.beginPath();
+        gx.arc(eX - 3, 123 + eBob, 3, 0, Math.PI * 2);
+        gx.arc(eX + 3, 123 + eBob, 3, 0, Math.PI * 2);
+        gx.fill();
+
+        requestAnimationFrame(drawGengarPreview);
+    }
+    drawGengarPreview();
     </script>
 </body>
 </html>
